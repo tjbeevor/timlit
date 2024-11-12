@@ -453,9 +453,7 @@ def main():
 
     # Custom CSS to adjust the look and feel
     st.markdown("""<style>
-.css-18e3th9 {
-    padding: 0;
-}
+.css-18e3th9 {padding: 0;}
 .stButton>button {
     background-color: #E82127;
     color: #FFFFFF;
@@ -464,14 +462,8 @@ def main():
     width: 100%;
     font-size: 1.2em;
 }
-.stMetric {
-    font-size: 1.5em;
-}
+.stMetric {font-size: 1.5em;}
 </style>""", unsafe_allow_html=True)
-
-
-        </style>
-    """, unsafe_allow_html=True)
 
     st.markdown("<h1 style='font-size:48px; color:#000000;'>⚡ Energy Independence Package Designer</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='color:#000000;'>Design your complete energy solution</h3>", unsafe_allow_html=True)
