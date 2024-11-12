@@ -452,7 +452,7 @@ def main():
     st.set_page_config(page_title="Energy Package Designer", layout="wide")
 
     # Custom CSS to adjust the look and feel
-    st.markdown("""
+    st.markdown("<h2 style='color:#000000;'>Monthly Financial Breakdown</h2>", unsafe_allow_html=True)
         <style>
         .css-18e3th9 {
             padding: 0;
