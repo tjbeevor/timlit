@@ -133,7 +133,7 @@ class EnergyPackages:
                 range=400,
                 charging_power=7.0,
                 v2g_capable=True,
-                base_price=650,
+                base_price=65000,  # Should be 65,000 not 650
                 profit_share=0.15,
                 features=['Vehicle-to-grid ready', 'Smart charging', '7kW AC charging']
             ),
@@ -185,7 +185,7 @@ class EnergyPackages:
                 peak_power=10.0,
                 cycles=8000,
                 warranty_years=12,
-                base_price=250,
+                base_price=25000,  # Should be 25,000 not 250
                 profit_share=0.15,
                 grid_share=0.30,
                 features=['Whole home backup', 'Advanced monitoring', 'FCAS participation']
