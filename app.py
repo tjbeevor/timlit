@@ -311,9 +311,9 @@ class ROICalculator:
             # Calculate maintenance costs
             maintenance = {
                 'ev_maintenance': (self.maintenance_costs['ev']['annual_service'] / 12 +
-                                 (self.maintenance_costs['ev']['tires'] / 48)),  # Assuming tires every 4 years
+                                   (self.maintenance_costs['ev']['tires'] / 48)),  # Assuming tires every 4 years
                 'solar_maintenance': (self.maintenance_costs['solar']['cleaning'] / 12 +
-                                    self.maintenance_costs['solar']['inverter_replacement'] / (120)),  # 10 years
+                                      self.maintenance_costs['solar']['inverter_replacement'] / (120)),  # 10 years
                 'battery_maintenance': self.maintenance_costs['battery']['annual_check'] / 12
             }
             
@@ -394,7 +394,7 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
         x=x_data,
         y=y_data,
         connector={"line": {"color": "rgb(63, 63, 63)"}},
-        decreasing={"marker": {"color": "#E82127"}},  # Tesla red for costs
+        decreasing={"marker": {"color": "#E82127"}},  # Red for costs
         increasing={"marker": {"color": "#000000"}},  # Black for benefits
         totals={"marker": {"color": "#808080"}},      # Grey for totals
         hovertemplate='%{x}: %{y:$,.2f}<extra></extra>'
@@ -470,9 +470,9 @@ def main():
         st.markdown("<h2 style='color:#000000;'>Recommended Package</h2>", unsafe_allow_html=True)
         st.info(
             f"Based on your profile:\n\n"
-            f"🚗 EV: {recommended['ev']}\n"
-            f"🔋 Battery: {recommended['battery']}\n"
-            f"☀️ Solar: {recommended['solar']}"
+            f"🚗 **EV:** {recommended['ev']}\n"
+            f"🔋 **Battery:** {recommended['battery']}\n"
+            f"☀️ **Solar:** {recommended['solar']}"
         )
     
     # Package selection
