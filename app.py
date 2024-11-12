@@ -376,46 +376,41 @@ def main():
         st.write(f"✨ {solar.warranty_years} year warranty")
     
     # Calculate ROI
-    if st.button("Calculate Financial Benefits", type="primary"):
-        roi = roi_calc.calculate_roi(
-            packages.ev_packages[selected_ev],
-            packages.battery_packages[selected_battery],
-            packages.solar_packages[selected_solar],
-            usage_profile
-        )
-        
-        st.header("Financial Summary")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric(
-                "Monthly Package Payment",
-                f"${roi['monthly_payment']:.2f}"
+     if st.button("Calculate Financial Benefits", type="primary"):
+            roi = roi_calc.calculate_roi(
+                packages.ev_packages[selected_ev],
+                packages.battery_packages[selected_battery],
+                packages.solar_packages[selected_solar],
+                usage_profile
             )
         
-        with col2:
-            st.metric(
-                "Monthly Benefits",
-                f"${roi['monthly_benefit']:.2f}"
-            )
+            st.header("Financial Summary")
+            col1, col2, col3, col4 = st.columns(4)
             
-        with col3:
-            st.metric(
-                "Net Monthly Savings",
-                f"${roi['net_monthly']:.2f}
-
-                with col3:
-            st.metric(
-                "Net Monthly Savings",
-                f"${roi['net_monthly']:.2f}",
-                delta=f"${roi['net_monthly'] - power_bill:.2f} vs current"
-            )
+            with col1:
+                st.metric(
+                    "Monthly Package Payment",
+                    f"${roi['monthly_payment']:.2f}"
+                )
             
-        with col4:
-            st.metric(
-                "Payback Period",
-                f"{roi['payback_years']:.1f} years"
-            )
+            with col2:
+                st.metric(
+                    "Monthly Benefits",
+                    f"${roi['monthly_benefit']:.2f}"
+                )
+                
+            with col3:
+                st.metric(
+                    "Net Monthly Savings",
+                    f"${roi['net_monthly']:.2f}",
+                    delta=f"${roi['net_monthly'] - power_bill:.2f} vs current"
+                )
+                
+            with col4:
+                st.metric(
+                    "Payback Period",
+                    f"{roi['payback_years']:.1f} years"
+                )
         
         # Detailed breakdown
         st.subheader("Monthly Breakdown")
