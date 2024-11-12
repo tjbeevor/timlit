@@ -176,44 +176,20 @@ class EnergyPackages:
         }
 
 class ROICalculator:
-    def __init__(self, aemo_pricing):
+    def __init__(self, aemo_pricing, interest_rate, loan_term_years, installation_costs, maintenance_costs, solar_rebate_per_kw, battery_rebate):
         self.aemo_pricing = aemo_pricing
-        self.interest_rate = 0.035  # Reduced interest rate to 3.5% p.a.
-        self.loan_term_years = 10  # Extended loan term to 10 years
+        self.interest_rate = interest_rate / 100.0  # Convert to decimal
+        self.loan_term_years = loan_term_years
 
         # Installation costs
-        self.installation_costs = {
-            'solar': {
-                'base': 1000,  # Base installation fee
-                'per_kw': 600,  # Additional cost per kW
-                'inverter': 2000  # Inverter cost
-            },
-            'battery': {
-                'base': 1500,  # Base installation fee
-                'wiring': 1000  # Electrical work
-            }
-        }
+        self.installation_costs = installation_costs
 
         # Maintenance costs
-        self.maintenance_costs = {
-            'ev': {
-                'annual_service': 200,  # Reduced annual service cost
-                'tires': 800,  # Every 4 years
-                'insurance': 1200,  # Annual insurance
-                'registration': 800,  # Annual registration
-                'battery_degradation': 0.01  # Reduced degradation rate to 1%
-            },
-            'solar': {
-                'cleaning': 200,  # Annual cleaning
-                'inverter_replacement': 2000,  # Every 10 years
-                'degradation': 0.005  # 0.5% annual output degradation
-            },
-            'battery': {
-                'annual_check': 150,  # Annual health check
-                'degradation': 0.01,  # Reduced degradation rate to 1%
-                'replacement': 10  # Expected life in years
-            }
-        }
+        self.maintenance_costs = maintenance_costs
+
+        # Rebates
+        self.solar_rebate_per_kw = solar_rebate_per_kw
+        self.battery_rebate = battery_rebate
 
     def calculate_total_installation_cost(self, solar_capacity, battery_capacity):
         solar_install = (
@@ -233,8 +209,8 @@ class ROICalculator:
         return total_cost - total_rebates
 
     def get_total_rebates(self, solar_capacity, battery_capacity):
-        solar_rebate = solar_capacity * 700  # Increased rebate per kW
-        battery_rebate = 4000  # Increased fixed battery rebate
+        solar_rebate = solar_capacity * self.solar_rebate_per_kw
+        battery_rebate = self.battery_rebate
         return solar_rebate + battery_rebate
 
     def calculate_monthly_payment(self, principal, years=None, rate=None):
@@ -251,7 +227,7 @@ class ROICalculator:
         monthly_revenue = daily_v2g_export * 30 * self.aemo_pricing.feed_in_tariff
         return monthly_revenue * (1 - self.maintenance_costs['ev']['battery_degradation']) ** year
 
-    def calculate_detailed_roi(self, ev, battery, solar, usage_profile, years=10):
+    def calculate_detailed_roi(self, ev, battery, solar, usage_profile, power_price_inflation, fuel_price_inflation, years=10):
         months = years * 12
         monthly_data = []
 
@@ -299,8 +275,8 @@ class ROICalculator:
                     battery.capacity * battery_capacity_factor
                 ),
                 'solar_export': (solar.capacity * solar_output_factor * 4 * 30 * self.aemo_pricing.feed_in_tariff),
-                'power_savings': usage_profile['power_bill'] * 0.8 * (1 + 0.05) ** year,  # Increased to 5% annual growth
-                'fuel_savings': usage_profile['fuel_cost'] * 0.9 * (1 + 0.05) ** year,  # Increased to 5% annual growth
+                'power_savings': usage_profile['power_bill'] * 0.8 * (1 + power_price_inflation) ** year,
+                'fuel_savings': usage_profile['fuel_cost'] * 0.9 * (1 + fuel_price_inflation) ** year,
                 'v2g_revenue': self.calculate_v2g_revenue(ev.battery_capacity, year)
             }
 
@@ -405,7 +381,6 @@ def main():
     # Initialize classes
     aemo = AEMOPricing()
     packages = EnergyPackages()
-    roi_calc = ROICalculator(aemo)
 
     # User inputs
     col1, col2 = st.columns(2)
@@ -484,18 +459,99 @@ def main():
         for feature in solar.features:
             st.write(f"- {feature}")
 
+    # Editable assumptions
+    st.markdown("<h1 style='color:#000000;'>Financial Summary</h1>", unsafe_allow_html=True)
+    with st.expander("Adjust Assumptions"):
+        st.markdown("#### Financial Assumptions")
+        interest_rate = st.number_input("Interest Rate (%)", min_value=0.0, max_value=10.0, value=3.5, step=0.1)
+        loan_term_years = st.number_input("Loan Term (years)", min_value=1, max_value=30, value=10)
+
+        st.markdown("#### Installation Costs")
+        solar_base_install = st.number_input("Solar Base Installation Cost ($)", min_value=0, value=1000)
+        solar_per_kw = st.number_input("Solar Installation Cost per kW ($)", min_value=0, value=600)
+        solar_inverter_cost = st.number_input("Solar Inverter Cost ($)", min_value=0, value=2000)
+
+        battery_base_install = st.number_input("Battery Base Installation Cost ($)", min_value=0, value=1500)
+        battery_wiring_cost = st.number_input("Battery Wiring Cost ($)", min_value=0, value=1000)
+
+        st.markdown("#### Maintenance Costs")
+        ev_annual_service = st.number_input("EV Annual Service Cost ($)", min_value=0, value=200)
+        ev_tires_cost = st.number_input("EV Tires Replacement Cost ($)", min_value=0, value=800)
+        ev_insurance = st.number_input("EV Annual Insurance Cost ($)", min_value=0, value=1200)
+        ev_registration = st.number_input("EV Annual Registration Cost ($)", min_value=0, value=800)
+        solar_cleaning = st.number_input("Solar Annual Cleaning Cost ($)", min_value=0, value=200)
+        solar_inverter_replacement = st.number_input("Solar Inverter Replacement Cost ($)", min_value=0, value=2000)
+        battery_annual_check = st.number_input("Battery Annual Check Cost ($)", min_value=0, value=150)
+
+        st.markdown("#### Degradation Rates")
+        ev_battery_degradation = st.number_input("EV Battery Degradation Rate (% per year)", min_value=0.0, max_value=10.0, value=1.0, step=0.1)
+        solar_degradation = st.number_input("Solar Output Degradation Rate (% per year)", min_value=0.0, max_value=10.0, value=0.5, step=0.1)
+        battery_degradation = st.number_input("Battery Degradation Rate (% per year)", min_value=0.0, max_value=10.0, value=1.0, step=0.1)
+
+        st.markdown("#### Energy Price Inflation Rates")
+        power_price_inflation = st.number_input("Power Price Inflation Rate (% per year)", min_value=0.0, max_value=10.0, value=5.0, step=0.1)
+        fuel_price_inflation = st.number_input("Fuel Price Inflation Rate (% per year)", min_value=0.0, max_value=10.0, value=5.0, step=0.1)
+
+        st.markdown("#### Government Rebates")
+        solar_rebate_per_kw = st.number_input("Solar Rebate per kW ($)", min_value=0, value=700)
+        battery_rebate = st.number_input("Battery Rebate ($)", min_value=0, value=4000)
+
+    # Create installation_costs and maintenance_costs dictionaries
+    installation_costs = {
+        'solar': {
+            'base': solar_base_install,
+            'per_kw': solar_per_kw,
+            'inverter': solar_inverter_cost
+        },
+        'battery': {
+            'base': battery_base_install,
+            'wiring': battery_wiring_cost
+        }
+    }
+
+    maintenance_costs = {
+        'ev': {
+            'annual_service': ev_annual_service,
+            'tires': ev_tires_cost,
+            'insurance': ev_insurance,
+            'registration': ev_registration,
+            'battery_degradation': ev_battery_degradation / 100.0  # Convert to decimal
+        },
+        'solar': {
+            'cleaning': solar_cleaning,
+            'inverter_replacement': solar_inverter_replacement,
+            'degradation': solar_degradation / 100.0  # Convert to decimal
+        },
+        'battery': {
+            'annual_check': battery_annual_check,
+            'degradation': battery_degradation / 100.0  # Convert to decimal
+        }
+    }
+
+    # Create an instance of ROICalculator with the user-provided values
+    roi_calc = ROICalculator(
+        aemo_pricing=aemo,
+        interest_rate=interest_rate,
+        loan_term_years=loan_term_years,
+        installation_costs=installation_costs,
+        maintenance_costs=maintenance_costs,
+        solar_rebate_per_kw=solar_rebate_per_kw,
+        battery_rebate=battery_rebate
+    )
+
     # Calculate ROI
     if st.button("Calculate Financial Benefits"):
         detailed_roi = roi_calc.calculate_detailed_roi(
             packages.ev_packages[selected_ev],
             packages.battery_packages[selected_battery],
             packages.solar_packages[selected_solar],
-            usage_profile
+            usage_profile,
+            power_price_inflation=power_price_inflation / 100.0,
+            fuel_price_inflation=fuel_price_inflation / 100.0
         )
 
         # Summary metrics
         current_month_data = detailed_roi[0]
-        st.markdown("<h1 style='color:#000000;'>Financial Summary</h1>", unsafe_allow_html=True)
 
         col1, col2, col3, col4 = st.columns(4)
 
