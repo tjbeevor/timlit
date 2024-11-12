@@ -452,22 +452,24 @@ def main():
     st.set_page_config(page_title="Energy Package Designer", layout="wide")
 
     # Custom CSS to adjust the look and feel
-    st.markdown("<h2 style='color:#000000;'>Monthly Financial Breakdown</h2>", unsafe_allow_html=True)
-        <style>
-        .css-18e3th9 {
-            padding: 0;
-        }
-        .stButton>button {
-            background-color: #E82127;
-            color: #FFFFFF;
-            border-radius: 5px;
-            height: 3em;
-            width: 100%;
-            font-size: 1.2em;
-        }
-        .stMetric {
-            font-size: 1.5em;
-        }
+    st.markdown("""<style>
+.css-18e3th9 {
+    padding: 0;
+}
+.stButton>button {
+    background-color: #E82127;
+    color: #FFFFFF;
+    border-radius: 5px;
+    height: 3em;
+    width: 100%;
+    font-size: 1.2em;
+}
+.stMetric {
+    font-size: 1.5em;
+}
+</style>""", unsafe_allow_html=True)
+
+
         </style>
     """, unsafe_allow_html=True)
 
