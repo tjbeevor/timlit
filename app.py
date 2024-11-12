@@ -8,6 +8,24 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 # Data Classes
+
+@dataclass
+class ICEVehicle:
+    base_price: float
+    fuel_consumption: float  # L/100km
+    annual_service: float
+    depreciation_rate: float
+    insurance: float
+    registration: float
+
+@dataclass
+class TaxBenefits:
+    gst_rate: float = 0.10
+    fbt_rate: float = 0.47
+    business_use_percentage: float = 0.80
+    tax_bracket: float = 0.37
+
+
 @dataclass
 class EVPackage:
     model: str
@@ -184,24 +202,83 @@ class EnergyPackages:
         }
 
 class ROICalculator:
-    def __init__(self, aemo_pricing, interest_rate, loan_term_years, installation_costs, maintenance_costs, solar_rebate_per_kw, battery_rebate, power_price_inflation, fuel_price_inflation):
-        self.aemo_pricing = aemo_pricing
-        self.interest_rate = interest_rate / 100.0  # Convert to decimal
-        self.loan_term_years = loan_term_years
+    def __init__(self, aemo_pricing, interest_rate, loan_term_years, installation_costs, 
+                 maintenance_costs, solar_rebate_per_kw, battery_rebate, 
+                 power_price_inflation, fuel_price_inflation):
+        # Existing initializations...
+        self.ice_vehicle = ICEVehicle(
+            base_price=45000,
+            fuel_consumption=8.5,
+            annual_service=800,
+            depreciation_rate=0.15,
+            insurance=1000,
+            registration=800
+        )
+        self.tax_benefits = TaxBenefits()
+    
+    def calculate_tax_benefits(self, ev_price, year):
+        """Calculate GST and FBT benefits"""
+        if year < 5:
+            # First vehicle
+            gst_benefit = ev_price * self.tax_benefits.gst_rate * self.tax_benefits.business_use_percentage
+            fbt_base = ev_price * self.tax_benefits.business_use_percentage
+            fbt_benefit = fbt_base * self.tax_benefits.fbt_rate * (1 - self.tax_benefits.business_use_percentage)
+        else:
+            # Second vehicle
+            new_ev_price = ev_price * (1 + 0.10)  # Assuming 10% price increase for new model
+            gst_benefit = new_ev_price * self.tax_benefits.gst_rate * self.tax_benefits.business_use_percentage
+            fbt_base = new_ev_price * self.tax_benefits.business_use_percentage
+            fbt_benefit = fbt_base * self.tax_benefits.fbt_rate * (1 - self.tax_benefits.business_use_percentage)
+        
+        return {
+            'gst_benefit': gst_benefit / 12,  # Monthly benefit
+            'fbt_benefit': fbt_benefit / 12
+        }
 
-        # Installation costs
-        self.installation_costs = installation_costs
-
-        # Maintenance costs
-        self.maintenance_costs = maintenance_costs
-
-        # Rebates
-        self.solar_rebate_per_kw = solar_rebate_per_kw
-        self.battery_rebate = battery_rebate
-
-        # Inflation rates
-        self.power_price_inflation = power_price_inflation / 100.0
-        self.fuel_price_inflation = fuel_price_inflation / 100.0
+    def calculate_detailed_roi(self, ev, battery, solar, usage_profile, years=10):
+        monthly_data = []
+        
+        # Initial vehicle costs
+        ev_initial = ev.base_price
+        ice_initial = self.ice_vehicle.base_price
+        
+        # First EV loan
+        ev_loan_schedule = self.generate_amortization_schedule(
+            principal=ev_initial,
+            annual_interest_rate=self.interest_rate,
+            loan_term_years=5  # 5-year loan for first vehicle
+        )
+        
+        for month in range(years * 12):
+            year = month / 12
+            
+            # Handle vehicle replacement at year 5
+            if month == 60:  # 5 years
+                # Calculate trade-in values
+                ev_trade_in = ev_initial * ((1 - ev.depreciation_rate) ** 5)
+                ice_trade_in = ice_initial * ((1 - self.ice_vehicle.depreciation_rate) ** 5)
+                
+                # New EV purchase with trade-in
+                new_ev_price = ev.base_price * 1.10  # Assuming 10% price increase
+                ev_loan_schedule = self.generate_amortization_schedule(
+                    principal=new_ev_price - ev_trade_in,
+                    annual_interest_rate=self.interest_rate,
+                    loan_term_years=5
+                )
+            
+            # Calculate tax benefits
+            tax_benefits = self.calculate_tax_benefits(ev.base_price, year)
+            
+            # Rest of the existing calculations...
+            # Add tax benefits to the monthly data
+            monthly_data.append({
+                'month': month,
+                'year': year,
+                'tax_benefits': tax_benefits,
+                # ... rest of the existing data
+            })
+        
+        return monthly_data
 
     def calculate_total_installation_cost(self, solar_capacity, battery_capacity):
         solar_install = (
@@ -564,6 +641,16 @@ def main():
         st.write(f"✨ **Features:**")
         for feature in solar.features:
             st.write(f"- {feature}")
+
+    with st.expander("Vehicle and Tax Settings"):
+        st.markdown("#### ICE Vehicle Comparison")
+        ice_price = st.number_input("ICE Vehicle Base Price ($)", value=45000)
+        ice_fuel_consumption = st.number_input("Fuel Consumption (L/100km)", value=8.5)
+        ice_depreciation = st.number_input("Annual Depreciation Rate (%)", value=15.0)
+        
+        st.markdown("#### Tax Benefits")
+        business_use = st.slider("Business Use Percentage (%)", 0, 100, 80)
+        tax_bracket = st.selectbox("Tax Bracket (%)", [0, 19, 32.5, 37, 45])
 
     # Editable assumptions
     st.markdown("<h1 style='color:#000000;'>Financial Summary</h1>", unsafe_allow_html=True)
