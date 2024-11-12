@@ -311,9 +311,9 @@ class ROICalculator:
             # Calculate maintenance costs
             maintenance = {
                 'ev_maintenance': (self.maintenance_costs['ev']['annual_service'] / 12 +
-                                   (self.maintenance_costs['ev']['tires'] / 48)),  # Assuming tires every 4 years
+                                 (self.maintenance_costs['ev']['tires'] / 48)),  # Assuming tires every 4 years
                 'solar_maintenance': (self.maintenance_costs['solar']['cleaning'] / 12 +
-                                      self.maintenance_costs['solar']['inverter_replacement'] / (120)),  # 10 years
+                                    self.maintenance_costs['solar']['inverter_replacement'] / (120)),  # 10 years
                 'battery_maintenance': self.maintenance_costs['battery']['annual_check'] / 12
             }
             
@@ -357,7 +357,7 @@ class ROICalculator:
         
         return monthly_data
 
-def visualize_monthly_breakdown(monthly_data, month_index=0):
+        def visualize_monthly_breakdown(monthly_data, month_index=0):
     """Create visualization of monthly costs and benefits"""
     fig = go.Figure()
     
@@ -367,7 +367,7 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
     
     # Waterfall chart data
     measure = ['relative', 'relative', 'relative', 'relative', 'total',
-               'relative', 'relative', 'relative', 'relative', 'relative', 'relative', 'total']
+              'relative', 'relative', 'relative', 'relative', 'relative', 'relative', 'total']
     
     x_data = ['Loan Payment', 'EV Maintenance', 'Solar Maintenance', 'Battery Maintenance', 'Total Costs',
               'Arbitrage', 'FCAS Revenue', 'Demand Response', 'Solar Export', 'Power Savings', 'Fuel Savings', 'Net Position']
@@ -394,10 +394,9 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
         x=x_data,
         y=y_data,
         connector={"line": {"color": "rgb(63, 63, 63)"}},
-        decreasing={"marker": {"color": "#E82127"}},  # Red for costs
-        increasing={"marker": {"color": "#000000"}},  # Black for benefits
-        totals={"marker": {"color": "#808080"}},      # Grey for totals
-        hovertemplate='%{x}: %{y:$,.2f}<extra></extra>'
+        decreasing={"marker": {"color": "#EF553B"}},
+        increasing={"marker": {"color": "#00CC96"}},
+        totals={"marker": {"color": "#636EFA"}}
     ))
     
     fig.update_layout(
@@ -405,41 +404,16 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
         showlegend=False,
         height=500,
         yaxis_title="Amount ($)",
-        xaxis_title="Components",
-        font=dict(
-            family="Helvetica, Arial, sans-serif",
-            size=14,
-            color="#000000"
-        )
+        xaxis_title="Components"
     )
     
     return fig
 
 def main():
     st.set_page_config(page_title="Energy Package Designer", layout="wide")
-
-    # Custom CSS to adjust the look and feel
-    st.markdown("""
-        <style>
-        .css-18e3th9 {
-            padding: 0;
-        }
-        .stButton>button {
-            background-color: #E82127;
-            color: #FFFFFF;
-            border-radius: 5px;
-            height: 3em;
-            width: 100%;
-            font-size: 1.2em;
-        }
-        .stMetric {
-            font-size: 1.5em;
-        }
-        </style>
-        """, unsafe_allow_html=True)
     
-    st.markdown("<h1 style='font-size:48px; color:#000000;'>⚡ Energy Independence Package Designer</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='color:#000000;'>Design your complete energy solution</h3>", unsafe_allow_html=True)
+    st.title("⚡ Energy Independence Package Designer")
+    st.subheader("Design your complete energy solution")
     
     # Initialize classes
     aemo = AEMOPricing()
@@ -450,7 +424,7 @@ def main():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("<h2 style='color:#000000;'>Your Energy Profile</h2>", unsafe_allow_html=True)
+        st.subheader("Your Energy Profile")
         daily_commute = st.slider("Daily Commute (km)", 0, 200, 40)
         power_bill = st.number_input("Monthly Power Bill ($)", 0, 1000, 250)
         fuel_cost = st.number_input("Monthly Fuel Cost ($)", 0, 1000, 200)
@@ -467,16 +441,16 @@ def main():
     recommended = packages.get_recommended_package(usage_profile)
     
     with col2:
-        st.markdown("<h2 style='color:#000000;'>Recommended Package</h2>", unsafe_allow_html=True)
+        st.subheader("Recommended Package")
         st.info(
             f"Based on your profile:\n\n"
-            f"🚗 **EV:** {recommended['ev']}\n"
-            f"🔋 **Battery:** {recommended['battery']}\n"
-            f"☀️ **Solar:** {recommended['solar']}"
+            f"🚗 EV: {recommended['ev']}\n"
+            f"🔋 Battery: {recommended['battery']}\n"
+            f"☀️ Solar: {recommended['solar']}"
         )
     
     # Package selection
-    st.markdown("<h1 style='color:#000000;'>Package Selection</h1>", unsafe_allow_html=True)
+    st.header("Package Selection")
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -487,10 +461,9 @@ def main():
         )
         ev = packages.ev_packages[selected_ev]
         
-        st.markdown(f"<h3 style='color:#000000;'>{ev.model}</h3>", unsafe_allow_html=True)
-        st.write(f"🚗 **Model:** {ev.model}")
-        st.write(f"⚡ **Battery Capacity:** {ev.battery_capacity} kWh")
-        st.write(f"🛣️ **Range:** {ev.range} km")
+        st.write(f"🚗 {ev.model}")
+        st.write(f"⚡ {ev.battery_capacity}kWh battery")
+        st.write(f"🛣️ {ev.range}km range")
         
     with col2:
         selected_battery = st.selectbox(
@@ -500,10 +473,9 @@ def main():
         )
         battery = packages.battery_packages[selected_battery]
         
-        st.markdown(f"<h3 style='color:#000000;'>{selected_battery} Battery</h3>", unsafe_allow_html=True)
-        st.write(f"🔋 **Capacity:** {battery.capacity} kWh")
-        st.write(f"⚡ **Peak Power:** {battery.peak_power} kW")
-        st.write(f"✨ **Warranty:** {battery.warranty_years} years")
+        st.write(f"🔋 {battery.capacity}kWh capacity")
+        st.write(f"⚡ {battery.peak_power}kW power")
+        st.write(f"✨ {battery.warranty_years} year warranty")
         
     with col3:
         selected_solar = st.selectbox(
@@ -513,13 +485,12 @@ def main():
         )
         solar = packages.solar_packages[selected_solar]
         
-        st.markdown(f"<h3 style='color:#000000;'>{selected_solar} Solar</h3>", unsafe_allow_html=True)
-        st.write(f"☀️ **System Size:** {solar.capacity} kW")
-        st.write(f"📊 **Panels:** {solar.panel_count} x {solar.panel_power} W")
-        st.write(f"✨ **Warranty:** {solar.warranty_years} years")
+        st.write(f"☀️ {solar.capacity}kW system")
+        st.write(f"📊 {solar.panel_count}x {solar.panel_power}W panels")
+        st.write(f"✨ {solar.warranty_years} year warranty")
 
     # Calculate ROI
-    if st.button("Calculate Financial Benefits"):
+    if st.button("Calculate Financial Benefits", type="primary"):
         detailed_roi = roi_calc.calculate_detailed_roi(
             packages.ev_packages[selected_ev],
             packages.battery_packages[selected_battery],
@@ -530,34 +501,33 @@ def main():
         # Summary metrics
         current_month_data = detailed_roi[0]
         
-        st.markdown("<h1 style='color:#000000;'>Financial Summary</h1>", unsafe_allow_html=True)
+        st.header("Financial Summary")
         col1, col2, col3, col4 = st.columns(4)
         
         total_costs = (current_month_data['costs']['loan_payment'] + 
-                       current_month_data['costs']['maintenance'])
+                      current_month_data['costs']['maintenance'])
         total_benefits = sum(current_month_data['benefits'].values())
         net_monthly = total_benefits - total_costs
         
         with col1:
             st.metric(
                 "Monthly Package Cost",
-                f"${total_costs:,.2f}",
+                f"${total_costs:.2f}",
                 help="Including loan payment and maintenance"
             )
         
         with col2:
             st.metric(
                 "Monthly Benefits",
-                f"${total_benefits:,.2f}",
+                f"${total_benefits:.2f}",
                 help="Including all energy and fuel savings"
             )
             
         with col3:
-            delta_value = net_monthly - usage_profile['power_bill'] - usage_profile['fuel_cost']
             st.metric(
                 "Net Monthly Position",
-                f"${net_monthly:,.2f}",
-                delta=f"${delta_value:,.2f} vs current"
+                f"${net_monthly:.2f}",
+                delta=f"${net_monthly - power_bill:.2f} vs current"
             )
             
         with col4:
@@ -568,12 +538,12 @@ def main():
             )
         
         # Monthly breakdown visualization
-        st.markdown("<h2 style='color:#000000;'>Monthly Financial Breakdown</h2>", unsafe_allow_html=True)
+        st.subheader("Monthly Financial Breakdown")
         fig = visualize_monthly_breakdown(detailed_roi)
         st.plotly_chart(fig, use_container_width=True)
         
         # Detailed benefits breakdown
-        st.markdown("<h2 style='color:#000000;'>Energy Benefits Breakdown</h2>", unsafe_allow_html=True)
+        st.subheader("Energy Benefits Breakdown")
         col1, col2 = st.columns(2)
         
         with col1:
@@ -581,46 +551,38 @@ def main():
             for benefit, amount in benefits_data.items():
                 st.metric(
                     benefit.replace('_', ' ').title(),
-                    f"${amount:,.2f}"
+                    f"${amount:.2f}"
                 )
         
         with col2:
             # Create a pie chart of benefits
             fig = go.Figure(data=[go.Pie(
-                labels=[benefit.replace('_', ' ').title() for benefit in benefits_data.keys()],
+                labels=list(benefits_data.keys()),
                 values=list(benefits_data.values()),
-                hole=.3,
-                hovertemplate='%{label}: %{value:$,.2f}<extra></extra>'
+                hole=.3
             )])
-            fig.update_layout(
-                title="Benefits Distribution",
-                font=dict(
-                    family="Helvetica, Arial, sans-serif",
-                    size=14,
-                    color="#000000"
-                )
-            )
+            fig.update_layout(title="Benefits Distribution")
             st.plotly_chart(fig, use_container_width=True)
 
         # Package features
-        st.markdown("<h2 style='color:#000000;'>Package Features</h2>", unsafe_allow_html=True)
+        st.subheader("Package Features")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.write("🚗 **EV Features**")
+            st.write("🚗 EV Features")
             for feature in ev.features:
-                st.write(f"- {feature}")
+                st.write(f"✓ {feature}")
                 
         with col2:
-            st.write("🔋 **Battery Features**")
+            st.write("🔋 Battery Features")
             for feature in battery.features:
-                st.write(f"- {feature}")
+                st.write(f"✓ {feature}")
                 
         with col3:
-            st.write("☀️ **Solar Features**")
+            st.write("☀️ Solar Features")
             for feature in solar.features:
-                st.write(f"- {feature}")
+                st.write(f"✓ {feature}")
         
         # Disclaimer
         st.markdown("---")
