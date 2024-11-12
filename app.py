@@ -373,43 +373,189 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
               'Arbitrage', 'FCAS Revenue', 'Demand Response', 'Solar Export', 'Power Savings', 'Fuel Savings', 'Net Position']
     
     y_data = [
-        -costs_data['loan_payment'],
-        -costs_data['maintenance_breakdown']['ev_maintenance'],
-        -costs_data['maintenance_breakdown']['solar_maintenance'],
-        -costs_data['maintenance_breakdown']['battery_maintenance'],
+        -round(costs_data['loan_payment']),
+        -round(costs_data['maintenance_breakdown']['ev_maintenance']),
+        -round(costs_data['maintenance_breakdown']['solar_maintenance']),
+        -round(costs_data['maintenance_breakdown']['battery_maintenance']),
         0,  # Total costs placeholder
-        benefits_data['arbitrage'],
-        benefits_data['fcas'],
-        benefits_data['demand_response'],
-        benefits_data['solar_export'],
-        benefits_data['power_savings'],
-        benefits_data['fuel_savings'],
+        round(benefits_data['arbitrage']),
+        round(benefits_data['fcas']),
+        round(benefits_data['demand_response']),
+        round(benefits_data['solar_export']),
+        round(benefits_data['power_savings']),
+        round(benefits_data['fuel_savings']),
         0   # Net position placeholder
     ]
     
+    # Custom styling
     fig.add_trace(go.Waterfall(
         name="Financial Breakdown",
         orientation="v",
         measure=measure,
         x=x_data,
         y=y_data,
-        connector={"line": {"color": "rgb(63, 63, 63)"}},
-        decreasing={"marker": {"color": "#EF553B"}},
-        increasing={"marker": {"color": "#00CC96"}},
-        totals={"marker": {"color": "#636EFA"}}
+        connector={"line": {"color": "rgba(255, 255, 255, 0.5)"}},
+        decreasing={"marker": {"color": "#ff1744"}},  # Red for costs
+        increasing={"marker": {"color": "#00e676"}},  # Green for benefits
+        totals={"marker": {"color": "#3d5afe"}}      # Blue for totals
     ))
     
     fig.update_layout(
-        title="Monthly Financial Breakdown",
+        title={
+            'text': "Monthly Financial Breakdown",
+            'font': {'size': 24, 'color': 'white'}
+        },
         showlegend=False,
-        height=500,
-        yaxis_title="Amount ($)",
-        xaxis_title="Components"
+        height=600,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        yaxis=dict(
+            title="Amount ($)",
+            titlefont=dict(color='white'),
+            tickfont=dict(color='white'),
+            gridcolor='rgba(255, 255, 255, 0.1)'
+        ),
+        xaxis=dict(
+            title="Components",
+            titlefont=dict(color='white'),
+            tickfont=dict(color='white'),
+            gridcolor='rgba(255, 255, 255, 0.1)'
+        ),
+        hovermode='x'
+    )
+    
+    # Add hover template
+    fig.update_traces(
+        hovertemplate="<b>%{x}</b><br>" +
+                     "Amount: $%{y:,.0f}<br>" +
+                     "<extra></extra>"
+    )
+    
+    return fig
+
+def create_benefits_pie_chart(benefits_data):
+    """Create an enhanced pie chart for benefits breakdown"""
+    colors = ['#00e676', '#3d5afe', '#ff1744', '#ffea00', '#536dfe', '#69f0ae']
+    
+    fig = go.Figure(data=[go.Pie(
+        labels=[k.replace('_', ' ').title() for k in benefits_data.keys()],
+        values=[round(v) for v in benefits_data.values()],
+        hole=.4,
+        marker=dict(colors=colors),
+        textinfo='label+percent',
+        hovertemplate="<b>%{label}</b><br>" +
+                     "Amount: $%{value:,.0f}<br>" +
+                     "Percentage: %{percent}<br>" +
+                     "<extra></extra>"
+    )])
+    
+    fig.update_layout(
+        title={
+            'text': "Benefits Distribution",
+            'font': {'size': 24, 'color': 'white'}
+        },
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=400,
+        showlegend=True,
+        legend=dict(
+            font=dict(color='white'),
+            bgcolor='rgba(0,0,0,0)'
+        )
     )
     
     return fig
 
 def main():
+
+
+ # Custom styling
+    st.set_page_config(
+        page_title="Energy Sovereignty Designer",
+        page_icon="⚡",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+
+    # Custom CSS for Tesla-inspired styling
+    st.markdown("""
+        <style>
+        /* Main styling */
+        .main {
+            background-color: #000000;
+            color: #ffffff;
+        }
+        
+        /* Headers */
+        h1, h2, h3 {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            color: #ffffff;
+        }
+        
+        /* Metrics styling */
+        div[data-testid="metric-container"] {
+            background-color: rgba(28, 28, 28, 0.5);
+            border-radius: 10px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        div[data-testid="metric-container"] label {
+            color: #ffffff !important;
+        }
+        
+        /* Card styling */
+        div[data-testid="column"] {
+            background-color: rgba(28, 28, 28, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Button styling */
+        .stButton > button {
+            background-color: #3d5afe;
+            color: white;
+            border-radius: 20px;
+            padding: 10px 30px;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        
+        .stButton > button:hover {
+            background-color: #536dfe;
+            transform: scale(1.02);
+        }
+        
+        /* Slider styling */
+        .stSlider {
+            padding: 20px 0;
+        }
+        
+        /* SelectBox styling */
+        .stSelectbox > div > div {
+            background-color: rgba(28, 28, 28, 0.5);
+            border-radius: 10px;
+        }
+        
+        /* Feature list styling */
+        .feature-item {
+            background-color: rgba(61, 90, 254, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+            border-left: 3px solid #3d5afe;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+
+
+
+
+    
     st.set_page_config(page_title="Energy Package Designer", layout="wide")
     
     st.title("⚡ Energy Independence Package Designer")
