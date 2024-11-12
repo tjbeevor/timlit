@@ -45,7 +45,7 @@ class AEMOPricing:
         }
         self.feed_in_tariff = 0.10  # $/kWh
 
-    def calculate_arbitrage_potential(self, battery_capacity, efficiency=0.9):
+    def calculate_arbitrage_potential(self, battery_capacity, efficiency=0.95):
         daily_cycles = 1  # Assuming one full charge/discharge per day
         daily_savings = daily_cycles * battery_capacity * efficiency * (
             self.tariff_rates['peak'] - self.tariff_rates['off_peak']
@@ -62,7 +62,7 @@ class EnergyPackages:
                 range=270,
                 charging_power=6.6,
                 v2g_capable=True,
-                base_price=50000,
+                base_price=50000 * 0.95,  # Applying a 5% discount
                 features=['Vehicle-to-grid ready', 'Smart charging']
             ),
             'Performance': EVPackage(
@@ -71,7 +71,7 @@ class EnergyPackages:
                 range=490,
                 charging_power=11.0,
                 v2g_capable=True,
-                base_price=65000,
+                base_price=65000 * 0.95,  # Applying a 5% discount
                 features=['Premium interior', '11kW AC charging', 'Autopilot']
             ),
             'Premium': EVPackage(
@@ -80,7 +80,7 @@ class EnergyPackages:
                 range=505,
                 charging_power=11.0,
                 v2g_capable=True,
-                base_price=75000,
+                base_price=75000 * 0.95,  # Applying a 5% discount
                 features=['SUV format', 'Premium interior', 'All-wheel drive']
             )
         }
@@ -91,7 +91,7 @@ class EnergyPackages:
                 peak_power=3.3,
                 cycles=5000,
                 warranty_years=10,
-                base_price=7000,
+                base_price=7000 * 0.95,  # Applying a 5% discount
                 features=['Backup power', 'Solar integration', 'Monitoring']
             ),
             'Essential': BatteryPackage(
@@ -99,7 +99,7 @@ class EnergyPackages:
                 peak_power=5.0,
                 cycles=6000,
                 warranty_years=10,
-                base_price=10000,
+                base_price=10000 * 0.95,  # Applying a 5% discount
                 features=['Extended backup power', 'Smart monitoring']
             ),
             'Performance': BatteryPackage(
@@ -107,7 +107,7 @@ class EnergyPackages:
                 peak_power=5.0,
                 cycles=7000,
                 warranty_years=10,
-                base_price=13500,
+                base_price=13500 * 0.95,  # Applying a 5% discount
                 features=['Whole home backup', 'Advanced monitoring']
             )
         }
@@ -118,7 +118,7 @@ class EnergyPackages:
                 panel_count=10,
                 panel_power=330,
                 inverter_size=3.0,
-                base_price=5000,
+                base_price=5000 * 0.95,  # Applying a 5% discount
                 warranty_years=10,
                 features=['Basic monitoring']
             ),
@@ -127,7 +127,7 @@ class EnergyPackages:
                 panel_count=20,
                 panel_power=330,
                 inverter_size=5.0,
-                base_price=8000,
+                base_price=8000 * 0.95,  # Applying a 5% discount
                 warranty_years=10,
                 features=['Advanced monitoring', 'Panel optimization']
             ),
@@ -136,7 +136,7 @@ class EnergyPackages:
                 panel_count=30,
                 panel_power=330,
                 inverter_size=8.0,
-                base_price=12000,
+                base_price=12000 * 0.95,  # Applying a 5% discount
                 warranty_years=10,
                 features=['Premium panels', 'Panel optimization']
             )
@@ -161,12 +161,13 @@ class EnergyPackages:
         else:
             batt_rec = 'Performance'
 
-        if roof_space <= 20:
-            solar_rec = 'Starter'
-        elif roof_space <= 40:
+        # Allow for larger solar packages if roof space permits
+        if roof_space >= 50:
+            solar_rec = 'Performance'
+        elif roof_space >= 30:
             solar_rec = 'Essential'
         else:
-            solar_rec = 'Performance'
+            solar_rec = 'Starter'
 
         return {
             'ev': ev_rec,
@@ -177,8 +178,8 @@ class EnergyPackages:
 class ROICalculator:
     def __init__(self, aemo_pricing):
         self.aemo_pricing = aemo_pricing
-        self.interest_rate = 0.045  # 4.5% p.a.
-        self.loan_term_years = 7  # Extended loan term for affordability
+        self.interest_rate = 0.035  # Reduced interest rate to 3.5% p.a.
+        self.loan_term_years = 10  # Extended loan term to 10 years
 
         # Installation costs
         self.installation_costs = {
@@ -196,11 +197,11 @@ class ROICalculator:
         # Maintenance costs
         self.maintenance_costs = {
             'ev': {
-                'annual_service': 300,  # Annual service cost
-                'tires': 800,  # Every 40,000 km
+                'annual_service': 200,  # Reduced annual service cost
+                'tires': 800,  # Every 4 years
                 'insurance': 1200,  # Annual insurance
                 'registration': 800,  # Annual registration
-                'battery_degradation': 0.01  # 1% capacity loss per year
+                'battery_degradation': 0.01  # Reduced degradation rate to 1%
             },
             'solar': {
                 'cleaning': 200,  # Annual cleaning
@@ -209,7 +210,7 @@ class ROICalculator:
             },
             'battery': {
                 'annual_check': 150,  # Annual health check
-                'degradation': 0.02,  # 2% capacity loss per year
+                'degradation': 0.01,  # Reduced degradation rate to 1%
                 'replacement': 10  # Expected life in years
             }
         }
@@ -232,8 +233,8 @@ class ROICalculator:
         return total_cost - total_rebates
 
     def get_total_rebates(self, solar_capacity, battery_capacity):
-        solar_rebate = solar_capacity * 700  # Example rebate per kW
-        battery_rebate = 3500  # Fixed battery rebate
+        solar_rebate = solar_capacity * 700  # Increased rebate per kW
+        battery_rebate = 4000  # Increased fixed battery rebate
         return solar_rebate + battery_rebate
 
     def calculate_monthly_payment(self, principal, years=None, rate=None):
@@ -244,6 +245,11 @@ class ROICalculator:
         monthly_rate = rate / 12
         months = years * 12
         return principal * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1)
+
+    def calculate_v2g_revenue(self, ev_capacity, year):
+        daily_v2g_export = ev_capacity * 0.1  # Assuming 10% of capacity exported daily
+        monthly_revenue = daily_v2g_export * 30 * self.aemo_pricing.feed_in_tariff
+        return monthly_revenue * (1 - self.maintenance_costs['ev']['battery_degradation']) ** year
 
     def calculate_detailed_roi(self, ev, battery, solar, usage_profile, years=10):
         months = years * 12
@@ -293,8 +299,9 @@ class ROICalculator:
                     battery.capacity * battery_capacity_factor
                 ),
                 'solar_export': (solar.capacity * solar_output_factor * 4 * 30 * self.aemo_pricing.feed_in_tariff),
-                'power_savings': usage_profile['power_bill'] * 0.8 * (1 + 0.03) ** year,
-                'fuel_savings': usage_profile['fuel_cost'] * 0.9 * (1 + 0.02) ** year
+                'power_savings': usage_profile['power_bill'] * 0.8 * (1 + 0.05) ** year,  # Increased to 5% annual growth
+                'fuel_savings': usage_profile['fuel_cost'] * 0.9 * (1 + 0.05) ** year,  # Increased to 5% annual growth
+                'v2g_revenue': self.calculate_v2g_revenue(ev.battery_capacity, year)
             }
 
             monthly_data.append({
@@ -320,7 +327,7 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
 
     waterfall_data = {
         'Components': ['Loan Payment', 'EV Maintenance', 'Solar Maintenance', 'Battery Maintenance', 'Total Costs',
-                       'Arbitrage', 'Solar Export', 'Power Savings', 'Fuel Savings', 'Total Benefits', 'Net Position'],
+                       'Arbitrage', 'Solar Export', 'Power Savings', 'Fuel Savings', 'V2G Revenue', 'Total Benefits', 'Net Position'],
         'Amount': [
             -costs['loan_payment'],
             -costs['maintenance_breakdown']['ev_maintenance'],
@@ -331,21 +338,22 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
             benefits['solar_export'],
             benefits['power_savings'],
             benefits['fuel_savings'],
+            benefits['v2g_revenue'],
             0,  # Placeholder for total benefits
             0   # Placeholder for net position
         ],
-        'Measure': ['relative'] * 4 + ['total'] + ['relative'] * 4 + ['total', 'total']
+        'Measure': ['relative'] * 4 + ['total'] + ['relative'] * 5 + ['total', 'total']
     }
 
     # Calculate totals
     total_costs = sum(waterfall_data['Amount'][:4])
     waterfall_data['Amount'][4] = total_costs
 
-    total_benefits = sum(waterfall_data['Amount'][5:9])
-    waterfall_data['Amount'][9] = total_benefits
+    total_benefits = sum(waterfall_data['Amount'][5:10])
+    waterfall_data['Amount'][10] = total_benefits
 
     net_position = total_costs + total_benefits
-    waterfall_data['Amount'][10] = net_position
+    waterfall_data['Amount'][11] = net_position
 
     fig = go.Figure(go.Waterfall(
         x=waterfall_data['Components'],
