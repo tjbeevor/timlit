@@ -434,19 +434,19 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
         hovertemplate='%{x}: %{y:$,.2f}<extra></extra>'
     ))
 
-        fig.update_layout(
-            title="Monthly Financial Breakdown",
-            showlegend=False,
-            height=500,
-            yaxis_title="Amount ($)",
-            xaxis_title="Components",
-            font=dict(
-                family="Helvetica, Arial, sans-serif",
-                size=14,
-                color="#000000"
-            )
+    fig.update_layout(
+        title="Monthly Financial Breakdown",
+        showlegend=False,
+        height=500,
+        yaxis_title="Amount ($)",
+        xaxis_title="Components",
+        font=dict(
+            family="Helvetica, Arial, sans-serif",
+            size=14,
+            color="#000000"
         )
-        return fig
+    )
+    return fig
 
 def main():
     st.set_page_config(page_title="Energy Package Designer", layout="wide")
