@@ -594,6 +594,54 @@ def main():
         fig = visualize_monthly_breakdown(detailed_roi)
         st.plotly_chart(fig, use_container_width=True)
 
+        # Create DataFrame for plotting over time
+        df_roi = pd.DataFrame(detailed_roi)
+        df_roi['total_costs'] = df_roi['costs'].apply(lambda x: x['loan_payment'] + x['maintenance'])
+        df_roi['total_benefits'] = df_roi['benefits'].apply(lambda x: sum(x.values()))
+        df_roi['net_position'] = df_roi['total_benefits'] - df_roi['total_costs']
+        df_roi['cumulative_net_position'] = df_roi['net_position'].cumsum()
+        df_roi['year'] = df_roi['year']
+
+        # Plot cumulative net position over time
+        st.markdown("<h2 style='color:#000000;'>Cumulative Net Position Over Time</h2>", unsafe_allow_html=True)
+        fig_cumulative = px.line(
+            df_roi,
+            x='year',
+            y='cumulative_net_position',
+            title='Cumulative Net Position Over Time',
+            labels={'year': 'Year', 'cumulative_net_position': 'Cumulative Net Position ($)'}
+        )
+        st.plotly_chart(fig_cumulative, use_container_width=True)
+
+        # Plot annual total costs and benefits over time
+        st.markdown("<h2 style='color:#000000;'>Annual Costs and Benefits Over Time</h2>", unsafe_allow_html=True)
+        df_roi['year_int'] = df_roi['year'].astype(int)
+        df_annual = df_roi.groupby('year_int').agg({
+            'total_costs': 'sum',
+            'total_benefits': 'sum'
+        }).reset_index()
+
+        fig_annual = go.Figure()
+        fig_annual.add_trace(go.Bar(
+            x=df_annual['year_int'],
+            y=df_annual['total_benefits'],
+            name='Total Benefits',
+            marker_color='green'
+        ))
+        fig_annual.add_trace(go.Bar(
+            x=df_annual['year_int'],
+            y=-df_annual['total_costs'],  # Negative for costs
+            name='Total Costs',
+            marker_color='red'
+        ))
+        fig_annual.update_layout(
+            title='Annual Total Costs and Benefits',
+            xaxis_title='Year',
+            yaxis_title='Amount ($)',
+            barmode='group'
+        )
+        st.plotly_chart(fig_annual, use_container_width=True)
+
         # Detailed benefits breakdown
         st.markdown("<h2 style='color:#000000;'>Energy Benefits Breakdown</h2>", unsafe_allow_html=True)
         col1, col2 = st.columns(2)
