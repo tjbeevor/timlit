@@ -17,7 +17,6 @@ class EVPackage:
     base_price: float
     profit_share: float
     features: List[str]
-    image: str  # Added image attribute
 
 @dataclass
 class BatteryPackage:
@@ -29,7 +28,6 @@ class BatteryPackage:
     profit_share: float
     grid_share: float
     features: List[str]
-    image: str  # Added image attribute
 
 @dataclass
 class SolarPackage:
@@ -40,7 +38,6 @@ class SolarPackage:
     base_price: float
     warranty_years: int
     features: List[str]
-    image: str  # Added image attribute
 
 class AEMOPricing:
     def __init__(self):
@@ -138,8 +135,7 @@ class EnergyPackages:
                 v2g_capable=True,
                 base_price=650,
                 profit_share=0.15,
-                features=['Vehicle-to-grid ready', 'Smart charging', '7kW AC charging'],
-                image="images/EV_Essential.jpg"
+                features=['Vehicle-to-grid ready', 'Smart charging', '7kW AC charging']
             ),
             'Performance': EVPackage(
                 model="Tesla Model 3",
@@ -149,8 +145,7 @@ class EnergyPackages:
                 v2g_capable=True,
                 base_price=850,
                 profit_share=0.12,
-                features=['Premium interior', '11kW AC charging', 'Advanced autopilot'],
-                image="images/EV_Performance.jpg"
+                features=['Premium interior', '11kW AC charging', 'Advanced autopilot']
             ),
             'Premium': EVPackage(
                 model="Tesla Model Y",
@@ -160,8 +155,7 @@ class EnergyPackages:
                 v2g_capable=True,
                 base_price=950,
                 profit_share=0.12,
-                features=['SUV format', 'Premium interior', '11kW AC charging'],
-                image="images/EV_Premium.jpg"
+                features=['SUV format', 'Premium interior', '11kW AC charging']
             )
         }
 
@@ -174,8 +168,7 @@ class EnergyPackages:
                 base_price=150,
                 profit_share=0.20,
                 grid_share=0.30,
-                features=['Basic backup power', 'Solar integration', 'Smart monitoring'],
-                image="images/Battery_Starter.jpg"
+                features=['Basic backup power', 'Solar integration', 'Smart monitoring']
             ),
             'Essential': BatteryPackage(
                 capacity=15.0,
@@ -185,8 +178,7 @@ class EnergyPackages:
                 base_price=200,
                 profit_share=0.18,
                 grid_share=0.30,
-                features=['Extended backup power', 'Solar integration', 'Smart monitoring'],
-                image="images/Battery_Essential.jpg"
+                features=['Extended backup power', 'Solar integration', 'Smart monitoring']
             ),
             'Performance': BatteryPackage(
                 capacity=20.0,
@@ -196,8 +188,7 @@ class EnergyPackages:
                 base_price=250,
                 profit_share=0.15,
                 grid_share=0.30,
-                features=['Whole home backup', 'Advanced monitoring', 'FCAS participation'],
-                image="images/Battery_Performance.jpg"
+                features=['Whole home backup', 'Advanced monitoring', 'FCAS participation']
             )
         }
 
@@ -209,8 +200,7 @@ class EnergyPackages:
                 inverter_size=5.0,
                 base_price=100,
                 warranty_years=10,
-                features=['Basic monitoring', 'Single phase'],
-                image="images/Solar_Starter.jpg"
+                features=['Basic monitoring', 'Single phase']
             ),
             'Essential': SolarPackage(
                 capacity=8.8,
@@ -219,8 +209,7 @@ class EnergyPackages:
                 inverter_size=8.0,
                 base_price=130,
                 warranty_years=12,
-                features=['Advanced monitoring', 'Single phase', 'Panel optimization'],
-                image="images/Solar_Essential.jpg"
+                features=['Advanced monitoring', 'Single phase', 'Panel optimization']
             ),
             'Performance': SolarPackage(
                 capacity=13.2,
@@ -229,8 +218,7 @@ class EnergyPackages:
                 inverter_size=10.0,
                 base_price=180,
                 warranty_years=12,
-                features=['Premium panels', 'Three phase', 'Panel optimization'],
-                image="images/Solar_Performance.jpg"
+                features=['Premium panels', 'Three phase', 'Panel optimization']
             )
         }
 
@@ -379,7 +367,7 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
     
     # Waterfall chart data
     measure = ['relative', 'relative', 'relative', 'relative', 'total',
-              'relative', 'relative', 'relative', 'relative', 'relative', 'relative', 'total']
+               'relative', 'relative', 'relative', 'relative', 'relative', 'relative', 'total']
     
     x_data = ['Loan Payment', 'EV Maintenance', 'Solar Maintenance', 'Battery Maintenance', 'Total Costs',
               'Arbitrage', 'FCAS Revenue', 'Demand Response', 'Solar Export', 'Power Savings', 'Fuel Savings', 'Net Position']
@@ -409,7 +397,7 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
         decreasing={"marker": {"color": "#E82127"}},  # Tesla red for costs
         increasing={"marker": {"color": "#000000"}},  # Black for benefits
         totals={"marker": {"color": "#808080"}},      # Grey for totals
-        hovertemplate='%{y:$,.2f}'
+        hovertemplate='%{x}: %{y:$,.2f}<extra></extra>'
     ))
     
     fig.update_layout(
@@ -499,11 +487,10 @@ def main():
         )
         ev = packages.ev_packages[selected_ev]
         
-        st.image(ev.image, use_column_width=True)
         st.markdown(f"<h3 style='color:#000000;'>{ev.model}</h3>", unsafe_allow_html=True)
-        st.write(f"🚗 {ev.model}")
-        st.write(f"⚡ {ev.battery_capacity}kWh battery")
-        st.write(f"🛣️ {ev.range}km range")
+        st.write(f"🚗 **Model:** {ev.model}")
+        st.write(f"⚡ **Battery Capacity:** {ev.battery_capacity} kWh")
+        st.write(f"🛣️ **Range:** {ev.range} km")
         
     with col2:
         selected_battery = st.selectbox(
@@ -513,11 +500,10 @@ def main():
         )
         battery = packages.battery_packages[selected_battery]
         
-        st.image(battery.image, use_column_width=True)
         st.markdown(f"<h3 style='color:#000000;'>{selected_battery} Battery</h3>", unsafe_allow_html=True)
-        st.write(f"🔋 {battery.capacity}kWh capacity")
-        st.write(f"⚡ {battery.peak_power}kW power")
-        st.write(f"✨ {battery.warranty_years} year warranty")
+        st.write(f"🔋 **Capacity:** {battery.capacity} kWh")
+        st.write(f"⚡ **Peak Power:** {battery.peak_power} kW")
+        st.write(f"✨ **Warranty:** {battery.warranty_years} years")
         
     with col3:
         selected_solar = st.selectbox(
@@ -527,11 +513,10 @@ def main():
         )
         solar = packages.solar_packages[selected_solar]
         
-        st.image(solar.image, use_column_width=True)
         st.markdown(f"<h3 style='color:#000000;'>{selected_solar} Solar</h3>", unsafe_allow_html=True)
-        st.write(f"☀️ {solar.capacity}kW system")
-        st.write(f"📊 {solar.panel_count}x {solar.panel_power}W panels")
-        st.write(f"✨ {solar.warranty_years} year warranty")
+        st.write(f"☀️ **System Size:** {solar.capacity} kW")
+        st.write(f"📊 **Panels:** {solar.panel_count} x {solar.panel_power} W")
+        st.write(f"✨ **Warranty:** {solar.warranty_years} years")
 
     # Calculate ROI
     if st.button("Calculate Financial Benefits"):
@@ -549,7 +534,7 @@ def main():
         col1, col2, col3, col4 = st.columns(4)
         
         total_costs = (current_month_data['costs']['loan_payment'] + 
-                      current_month_data['costs']['maintenance'])
+                       current_month_data['costs']['maintenance'])
         total_benefits = sum(current_month_data['benefits'].values())
         net_monthly = total_benefits - total_costs
         
@@ -568,10 +553,11 @@ def main():
             )
             
         with col3:
+            delta_value = net_monthly - usage_profile['power_bill'] - usage_profile['fuel_cost']
             st.metric(
                 "Net Monthly Position",
                 f"${net_monthly:,.2f}",
-                delta=f"${net_monthly - power_bill:,.2f} vs current"
+                delta=f"${delta_value:,.2f} vs current"
             )
             
         with col4:
@@ -603,7 +589,8 @@ def main():
             fig = go.Figure(data=[go.Pie(
                 labels=[benefit.replace('_', ' ').title() for benefit in benefits_data.keys()],
                 values=list(benefits_data.values()),
-                hole=.3
+                hole=.3,
+                hovertemplate='%{label}: %{value:$,.2f}<extra></extra>'
             )])
             fig.update_layout(
                 title="Benefits Distribution",
@@ -621,19 +608,19 @@ def main():
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.write("🚗 EV Features")
+            st.write("🚗 **EV Features**")
             for feature in ev.features:
-                st.write(f"✓ {feature}")
+                st.write(f"- {feature}")
                 
         with col2:
-            st.write("🔋 Battery Features")
+            st.write("🔋 **Battery Features**")
             for feature in battery.features:
-                st.write(f"✓ {feature}")
+                st.write(f"- {feature}")
                 
         with col3:
-            st.write("☀️ Solar Features")
+            st.write("☀️ **Solar Features**")
             for feature in solar.features:
-                st.write(f"✓ {feature}")
+                st.write(f"- {feature}")
         
         # Disclaimer
         st.markdown("---")
