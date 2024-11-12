@@ -17,6 +17,7 @@ class EVPackage:
     base_price: float
     profit_share: float
     features: List[str]
+    image: str  # Added image attribute
 
 @dataclass
 class BatteryPackage:
@@ -28,6 +29,7 @@ class BatteryPackage:
     profit_share: float
     grid_share: float
     features: List[str]
+    image: str  # Added image attribute
 
 @dataclass
 class SolarPackage:
@@ -38,6 +40,7 @@ class SolarPackage:
     base_price: float
     warranty_years: int
     features: List[str]
+    image: str  # Added image attribute
 
 class AEMOPricing:
     def __init__(self):
@@ -135,7 +138,8 @@ class EnergyPackages:
                 v2g_capable=True,
                 base_price=650,
                 profit_share=0.15,
-                features=['Vehicle-to-grid ready', 'Smart charging', '7kW AC charging']
+                features=['Vehicle-to-grid ready', 'Smart charging', '7kW AC charging'],
+                image="images/EV_Essential.jpg"
             ),
             'Performance': EVPackage(
                 model="Tesla Model 3",
@@ -145,7 +149,8 @@ class EnergyPackages:
                 v2g_capable=True,
                 base_price=850,
                 profit_share=0.12,
-                features=['Premium interior', '11kW AC charging', 'Advanced autopilot']
+                features=['Premium interior', '11kW AC charging', 'Advanced autopilot'],
+                image="images/EV_Performance.jpg"
             ),
             'Premium': EVPackage(
                 model="Tesla Model Y",
@@ -155,7 +160,8 @@ class EnergyPackages:
                 v2g_capable=True,
                 base_price=950,
                 profit_share=0.12,
-                features=['SUV format', 'Premium interior', '11kW AC charging']
+                features=['SUV format', 'Premium interior', '11kW AC charging'],
+                image="images/EV_Premium.jpg"
             )
         }
 
@@ -168,7 +174,8 @@ class EnergyPackages:
                 base_price=150,
                 profit_share=0.20,
                 grid_share=0.30,
-                features=['Basic backup power', 'Solar integration', 'Smart monitoring']
+                features=['Basic backup power', 'Solar integration', 'Smart monitoring'],
+                image="images/Battery_Starter.jpg"
             ),
             'Essential': BatteryPackage(
                 capacity=15.0,
@@ -178,7 +185,8 @@ class EnergyPackages:
                 base_price=200,
                 profit_share=0.18,
                 grid_share=0.30,
-                features=['Extended backup power', 'Solar integration', 'Smart monitoring']
+                features=['Extended backup power', 'Solar integration', 'Smart monitoring'],
+                image="images/Battery_Essential.jpg"
             ),
             'Performance': BatteryPackage(
                 capacity=20.0,
@@ -188,7 +196,8 @@ class EnergyPackages:
                 base_price=250,
                 profit_share=0.15,
                 grid_share=0.30,
-                features=['Whole home backup', 'Advanced monitoring', 'FCAS participation']
+                features=['Whole home backup', 'Advanced monitoring', 'FCAS participation'],
+                image="images/Battery_Performance.jpg"
             )
         }
 
@@ -200,7 +209,8 @@ class EnergyPackages:
                 inverter_size=5.0,
                 base_price=100,
                 warranty_years=10,
-                features=['Basic monitoring', 'Single phase']
+                features=['Basic monitoring', 'Single phase'],
+                image="images/Solar_Starter.jpg"
             ),
             'Essential': SolarPackage(
                 capacity=8.8,
@@ -209,7 +219,8 @@ class EnergyPackages:
                 inverter_size=8.0,
                 base_price=130,
                 warranty_years=12,
-                features=['Advanced monitoring', 'Single phase', 'Panel optimization']
+                features=['Advanced monitoring', 'Single phase', 'Panel optimization'],
+                image="images/Solar_Essential.jpg"
             ),
             'Performance': SolarPackage(
                 capacity=13.2,
@@ -218,7 +229,8 @@ class EnergyPackages:
                 inverter_size=10.0,
                 base_price=180,
                 warranty_years=12,
-                features=['Premium panels', 'Three phase', 'Panel optimization']
+                features=['Premium panels', 'Three phase', 'Panel optimization'],
+                image="images/Solar_Performance.jpg"
             )
         }
 
@@ -357,7 +369,7 @@ class ROICalculator:
         
         return monthly_data
 
-        def visualize_monthly_breakdown(monthly_data, month_index=0):
+def visualize_monthly_breakdown(monthly_data, month_index=0):
     """Create visualization of monthly costs and benefits"""
     fig = go.Figure()
     
@@ -394,9 +406,10 @@ class ROICalculator:
         x=x_data,
         y=y_data,
         connector={"line": {"color": "rgb(63, 63, 63)"}},
-        decreasing={"marker": {"color": "#EF553B"}},
-        increasing={"marker": {"color": "#00CC96"}},
-        totals={"marker": {"color": "#636EFA"}}
+        decreasing={"marker": {"color": "#E82127"}},  # Tesla red for costs
+        increasing={"marker": {"color": "#000000"}},  # Black for benefits
+        totals={"marker": {"color": "#808080"}},      # Grey for totals
+        hovertemplate='%{y:$,.2f}'
     ))
     
     fig.update_layout(
@@ -404,16 +417,41 @@ class ROICalculator:
         showlegend=False,
         height=500,
         yaxis_title="Amount ($)",
-        xaxis_title="Components"
+        xaxis_title="Components",
+        font=dict(
+            family="Helvetica, Arial, sans-serif",
+            size=14,
+            color="#000000"
+        )
     )
     
     return fig
 
 def main():
     st.set_page_config(page_title="Energy Package Designer", layout="wide")
+
+    # Custom CSS to adjust the look and feel
+    st.markdown("""
+        <style>
+        .css-18e3th9 {
+            padding: 0;
+        }
+        .stButton>button {
+            background-color: #E82127;
+            color: #FFFFFF;
+            border-radius: 5px;
+            height: 3em;
+            width: 100%;
+            font-size: 1.2em;
+        }
+        .stMetric {
+            font-size: 1.5em;
+        }
+        </style>
+        """, unsafe_allow_html=True)
     
-    st.title("⚡ Energy Independence Package Designer")
-    st.subheader("Design your complete energy solution")
+    st.markdown("<h1 style='font-size:48px; color:#000000;'>⚡ Energy Independence Package Designer</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color:#000000;'>Design your complete energy solution</h3>", unsafe_allow_html=True)
     
     # Initialize classes
     aemo = AEMOPricing()
@@ -424,7 +462,7 @@ def main():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Your Energy Profile")
+        st.markdown("<h2 style='color:#000000;'>Your Energy Profile</h2>", unsafe_allow_html=True)
         daily_commute = st.slider("Daily Commute (km)", 0, 200, 40)
         power_bill = st.number_input("Monthly Power Bill ($)", 0, 1000, 250)
         fuel_cost = st.number_input("Monthly Fuel Cost ($)", 0, 1000, 200)
@@ -441,7 +479,7 @@ def main():
     recommended = packages.get_recommended_package(usage_profile)
     
     with col2:
-        st.subheader("Recommended Package")
+        st.markdown("<h2 style='color:#000000;'>Recommended Package</h2>", unsafe_allow_html=True)
         st.info(
             f"Based on your profile:\n\n"
             f"🚗 EV: {recommended['ev']}\n"
@@ -450,7 +488,7 @@ def main():
         )
     
     # Package selection
-    st.header("Package Selection")
+    st.markdown("<h1 style='color:#000000;'>Package Selection</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -461,6 +499,8 @@ def main():
         )
         ev = packages.ev_packages[selected_ev]
         
+        st.image(ev.image, use_column_width=True)
+        st.markdown(f"<h3 style='color:#000000;'>{ev.model}</h3>", unsafe_allow_html=True)
         st.write(f"🚗 {ev.model}")
         st.write(f"⚡ {ev.battery_capacity}kWh battery")
         st.write(f"🛣️ {ev.range}km range")
@@ -473,6 +513,8 @@ def main():
         )
         battery = packages.battery_packages[selected_battery]
         
+        st.image(battery.image, use_column_width=True)
+        st.markdown(f"<h3 style='color:#000000;'>{selected_battery} Battery</h3>", unsafe_allow_html=True)
         st.write(f"🔋 {battery.capacity}kWh capacity")
         st.write(f"⚡ {battery.peak_power}kW power")
         st.write(f"✨ {battery.warranty_years} year warranty")
@@ -485,12 +527,14 @@ def main():
         )
         solar = packages.solar_packages[selected_solar]
         
+        st.image(solar.image, use_column_width=True)
+        st.markdown(f"<h3 style='color:#000000;'>{selected_solar} Solar</h3>", unsafe_allow_html=True)
         st.write(f"☀️ {solar.capacity}kW system")
         st.write(f"📊 {solar.panel_count}x {solar.panel_power}W panels")
         st.write(f"✨ {solar.warranty_years} year warranty")
 
     # Calculate ROI
-    if st.button("Calculate Financial Benefits", type="primary"):
+    if st.button("Calculate Financial Benefits"):
         detailed_roi = roi_calc.calculate_detailed_roi(
             packages.ev_packages[selected_ev],
             packages.battery_packages[selected_battery],
@@ -501,7 +545,7 @@ def main():
         # Summary metrics
         current_month_data = detailed_roi[0]
         
-        st.header("Financial Summary")
+        st.markdown("<h1 style='color:#000000;'>Financial Summary</h1>", unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
         
         total_costs = (current_month_data['costs']['loan_payment'] + 
@@ -512,22 +556,22 @@ def main():
         with col1:
             st.metric(
                 "Monthly Package Cost",
-                f"${total_costs:.2f}",
+                f"${total_costs:,.2f}",
                 help="Including loan payment and maintenance"
             )
         
         with col2:
             st.metric(
                 "Monthly Benefits",
-                f"${total_benefits:.2f}",
+                f"${total_benefits:,.2f}",
                 help="Including all energy and fuel savings"
             )
             
         with col3:
             st.metric(
                 "Net Monthly Position",
-                f"${net_monthly:.2f}",
-                delta=f"${net_monthly - power_bill:.2f} vs current"
+                f"${net_monthly:,.2f}",
+                delta=f"${net_monthly - power_bill:,.2f} vs current"
             )
             
         with col4:
@@ -538,12 +582,12 @@ def main():
             )
         
         # Monthly breakdown visualization
-        st.subheader("Monthly Financial Breakdown")
+        st.markdown("<h2 style='color:#000000;'>Monthly Financial Breakdown</h2>", unsafe_allow_html=True)
         fig = visualize_monthly_breakdown(detailed_roi)
         st.plotly_chart(fig, use_container_width=True)
         
         # Detailed benefits breakdown
-        st.subheader("Energy Benefits Breakdown")
+        st.markdown("<h2 style='color:#000000;'>Energy Benefits Breakdown</h2>", unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         
         with col1:
@@ -551,21 +595,28 @@ def main():
             for benefit, amount in benefits_data.items():
                 st.metric(
                     benefit.replace('_', ' ').title(),
-                    f"${amount:.2f}"
+                    f"${amount:,.2f}"
                 )
         
         with col2:
             # Create a pie chart of benefits
             fig = go.Figure(data=[go.Pie(
-                labels=list(benefits_data.keys()),
+                labels=[benefit.replace('_', ' ').title() for benefit in benefits_data.keys()],
                 values=list(benefits_data.values()),
                 hole=.3
             )])
-            fig.update_layout(title="Benefits Distribution")
+            fig.update_layout(
+                title="Benefits Distribution",
+                font=dict(
+                    family="Helvetica, Arial, sans-serif",
+                    size=14,
+                    color="#000000"
+                )
+            )
             st.plotly_chart(fig, use_container_width=True)
 
         # Package features
-        st.subheader("Package Features")
+        st.markdown("<h2 style='color:#000000;'>Package Features</h2>", unsafe_allow_html=True)
         
         col1, col2, col3 = st.columns(3)
         
