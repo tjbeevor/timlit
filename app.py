@@ -205,7 +205,17 @@ class ROICalculator:
     def __init__(self, aemo_pricing, interest_rate, loan_term_years, installation_costs, 
                  maintenance_costs, solar_rebate_per_kw, battery_rebate, 
                  power_price_inflation, fuel_price_inflation):
-        # Existing initializations...
+        self.aemo_pricing = aemo_pricing
+        self.interest_rate = interest_rate / 100.0
+        self.loan_term_years = loan_term_years
+        self.installation_costs = installation_costs
+        self.maintenance_costs = maintenance_costs
+        self.solar_rebate_per_kw = solar_rebate_per_kw
+        self.battery_rebate = battery_rebate
+        self.power_price_inflation = power_price_inflation / 100.0
+        self.fuel_price_inflation = fuel_price_inflation / 100.0
+        
+        # Add new initializations
         self.ice_vehicle = ICEVehicle(
             base_price=45000,
             fuel_consumption=8.5,
@@ -215,7 +225,7 @@ class ROICalculator:
             registration=800
         )
         self.tax_benefits = TaxBenefits()
-    
+
     def calculate_tax_benefits(self, ev_price, year):
         """Calculate GST and FBT benefits"""
         if year < 5:
@@ -238,9 +248,28 @@ class ROICalculator:
     def calculate_detailed_roi(self, ev, battery, solar, usage_profile, years=10):
         monthly_data = []
         
+        # Calculate initial costs
+        installation_cost = self.calculate_total_installation_cost(
+            solar.capacity, battery.capacity
+        )
+        
         # Initial vehicle costs
         ev_initial = ev.base_price
         ice_initial = self.ice_vehicle.base_price
+        
+        # System costs including installation
+        system_costs = {
+            'battery': battery.base_price,
+            'solar': solar.base_price,
+            'installation': installation_cost
+        }
+        
+        # Generate loan schedules
+        system_loan_schedule = self.generate_amortization_schedule(
+            principal=sum(system_costs.values()),
+            annual_interest_rate=self.interest_rate,
+            loan_term_years=self.loan_term_years
+        )
         
         # First EV loan
         ev_loan_schedule = self.generate_amortization_schedule(
@@ -265,17 +294,41 @@ class ROICalculator:
                     annual_interest_rate=self.interest_rate,
                     loan_term_years=5
                 )
-            
-            # Calculate tax benefits
+
+            # Calculate loan payments
+            loan_payment = system_loan_schedule[month]['total_payment'] if month < len(system_loan_schedule) else 0
+            ev_loan_payment = ev_loan_schedule[month - 60 if month >= 60 else month]['total_payment'] if month < len(ev_loan_schedule) + 60 else 0
+
+            # Calculate degradation factors
+            battery_capacity_factor = (1 - self.maintenance_costs['battery']['degradation']) ** year
+            solar_output_factor = (1 - self.maintenance_costs['solar']['degradation']) ** year
+
+            # Calculate maintenance and other costs
+            maintenance = self.calculate_maintenance_costs(month, year)
+            energy_consumption = self.calculate_energy_consumption(ev, usage_profile, month)
+            energy_benefits = self.calculate_energy_benefits(battery, solar, usage_profile, battery_capacity_factor, solar_output_factor, year)
             tax_benefits = self.calculate_tax_benefits(ev.base_price, year)
-            
-            # Rest of the existing calculations...
-            # Add tax benefits to the monthly data
+
+            # Calculate net position
+            total_costs = (loan_payment + ev_loan_payment + sum(maintenance.values()) + 
+                         energy_consumption['total_charging_cost'])
+            total_benefits = sum(energy_benefits.values()) + sum(tax_benefits.values())
+            net_position = total_benefits - total_costs
+
             monthly_data.append({
                 'month': month,
                 'year': year,
+                'costs': {
+                    'loan_payment': loan_payment,
+                    'ev_loan_payment': ev_loan_payment,
+                    'maintenance': maintenance,
+                    'ev_charging_cost': energy_consumption['total_charging_cost']
+                },
+                'benefits': energy_benefits,
                 'tax_benefits': tax_benefits,
-                # ... rest of the existing data
+                'battery_health': battery_capacity_factor * 100,
+                'solar_health': solar_output_factor * 100,
+                'net_position': net_position
             })
         
         return monthly_data
