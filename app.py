@@ -257,39 +257,157 @@ class EnergyPackages:
 class ROICalculator:
     def __init__(self, aemo_pricing):
         self.aemo_pricing = aemo_pricing
-        self.interest_rate = 0.049
+        self.interest_rate = 0.049  # 4.9% p.a.
         self.loan_term_years = 5
         
-    def calculate_roi(self, ev, battery, solar, usage_profile):
-        # Monthly benefits calculation
-        arbitrage_revenue = self.aemo_pricing.calculate_arbitrage_potential(battery.capacity)
-        fcas_revenue = self.aemo_pricing.calculate_fcas_revenue(battery.capacity)
-        dr_revenue = self.aemo_pricing.calculate_demand_response_revenue(battery.capacity)
-        
-        # Monthly costs
-        total_cost = ev.base_price + battery.base_price + solar.base_price
-        monthly_payment = total_cost / (self.loan_term_years * 12)  # Simplified
-        
-        # Profit sharing
-        total_revenue = arbitrage_revenue + fcas_revenue + dr_revenue
-        customer_share = total_revenue * (1 - ev.profit_share - battery.profit_share)
-        
-        # Calculate savings
-        current_power_bill = usage_profile.get('power_bill', 0)
-        current_fuel_cost = usage_profile.get('fuel_cost', 0)
-        
-        total_monthly_benefit = (
-            customer_share +
-            current_power_bill * 0.8 +  # Assume 80% reduction in power bill
-            current_fuel_cost * 0.9     # Assume 90% reduction in fuel costs
-        )
-        
-        return {
-            'monthly_payment': monthly_payment,
-            'monthly_benefit': total_monthly_benefit,
-            'net_monthly': total_monthly_benefit - monthly_payment,
-            'payback_years': total_cost / (total_monthly_benefit * 12)
+        self.maintenance_costs = {
+            'ev': {
+                'annual_service': 300,      # Annual service cost
+                'tires': 1000,             # Every 40,000 km
+                'battery_degradation': 0.02 # 2% capacity loss per year
+            },
+            'solar': {
+                'cleaning': 200,            # Annual cleaning
+                'inverter_replacement': 2000, # Every 10 years
+                'degradation': 0.007        # 0.7% annual output degradation
+            },
+            'battery': {
+                'annual_check': 150,        # Annual health check
+                'degradation': 0.03,        # 3% capacity loss per year
+                'replacement': 10           # Expected life in years
+            }
         }
+
+    def calculate_monthly_payment(self, principal, years=5, rate=0.049):
+        """Calculate monthly loan payment"""
+        monthly_rate = rate / 12
+        months = years * 12
+        return principal * (monthly_rate * (1 + monthly_rate)**months) / ((1 + monthly_rate)**months - 1)
+
+    def calculate_detailed_roi(self, ev, battery, solar, usage_profile, years=10):
+        """Calculate detailed ROI with monthly breakdown over specified years"""
+        months = years * 12
+        monthly_data = []
+        
+        # Initial costs
+        system_costs = {
+            'ev': ev.base_price,
+            'battery': battery.base_price,
+            'solar': solar.base_price,
+            'installation': (battery.base_price + solar.base_price) * 0.15  # 15% installation cost
+        }
+        
+        total_principal = sum(system_costs.values())
+        monthly_payment = self.calculate_monthly_payment(total_principal)
+        
+        # Monthly calculations
+        for month in range(months):
+            year = month / 12
+            
+            # Calculate degradation factors
+            battery_capacity_factor = (1 - self.maintenance_costs['battery']['degradation']) ** year
+            solar_output_factor = (1 - self.maintenance_costs['solar']['degradation']) ** year
+            
+            # Calculate maintenance costs
+            maintenance = {
+                'ev_maintenance': (self.maintenance_costs['ev']['annual_service'] / 12 +
+                                 (self.maintenance_costs['ev']['tires'] / 48)),  # Assuming tires every 4 years
+                'solar_maintenance': (self.maintenance_costs['solar']['cleaning'] / 12 +
+                                    self.maintenance_costs['solar']['inverter_replacement'] / (120)),  # 10 years
+                'battery_maintenance': self.maintenance_costs['battery']['annual_check'] / 12
+            }
+            
+            # Calculate energy benefits
+            energy_benefits = {
+                'arbitrage': self.aemo_pricing.calculate_arbitrage_potential(
+                    battery.capacity * battery_capacity_factor
+                ),
+                'fcas': self.aemo_pricing.calculate_fcas_revenue(
+                    battery.capacity * battery_capacity_factor
+                ),
+                'demand_response': self.aemo_pricing.calculate_demand_response_revenue(
+                    battery.capacity * battery_capacity_factor
+                ),
+                'solar_export': (solar.capacity * solar_output_factor * 4 * 30 * 0.10),  # Assuming 10c/kWh feed-in
+                'power_savings': usage_profile['power_bill'] * 0.8 * (1 + 0.04) ** year,  # Assuming 4% annual increase
+                'fuel_savings': usage_profile['fuel_cost'] * 0.9 * (1 + 0.03) ** year     # Assuming 3% annual increase
+            }
+            
+            # Profit sharing calculations
+            trading_revenue = energy_benefits['arbitrage'] + energy_benefits['fcas'] + energy_benefits['demand_response']
+            profit_sharing = {
+                'customer_share': trading_revenue * (1 - ev.profit_share - battery.profit_share),
+                'ev_share': trading_revenue * ev.profit_share,
+                'battery_share': trading_revenue * battery.profit_share
+            }
+            
+            monthly_data.append({
+                'month': month,
+                'year': year,
+                'costs': {
+                    'loan_payment': monthly_payment,
+                    'maintenance': sum(maintenance.values()),
+                    'maintenance_breakdown': maintenance
+                },
+                'benefits': energy_benefits,
+                'profit_sharing': profit_sharing,
+                'battery_health': battery_capacity_factor * 100,
+                'solar_health': solar_output_factor * 100
+            })
+        
+        return monthly_data
+
+def visualize_monthly_breakdown(monthly_data, month_index=0):
+    """Create visualization of monthly costs and benefits"""
+    fig = go.Figure()
+    
+    # Costs
+    costs_data = monthly_data[month_index]['costs']
+    benefits_data = monthly_data[month_index]['benefits']
+    
+    # Waterfall chart data
+    measure = ['relative', 'relative', 'relative', 'relative', 'total',
+              'relative', 'relative', 'relative', 'relative', 'relative', 'relative', 'total']
+    
+    x_data = ['Loan Payment', 'EV Maintenance', 'Solar Maintenance', 'Battery Maintenance', 'Total Costs',
+              'Arbitrage', 'FCAS Revenue', 'Demand Response', 'Solar Export', 'Power Savings', 'Fuel Savings', 'Net Position']
+    
+    y_data = [
+        -costs_data['loan_payment'],
+        -costs_data['maintenance_breakdown']['ev_maintenance'],
+        -costs_data['maintenance_breakdown']['solar_maintenance'],
+        -costs_data['maintenance_breakdown']['battery_maintenance'],
+        0,  # Total costs placeholder
+        benefits_data['arbitrage'],
+        benefits_data['fcas'],
+        benefits_data['demand_response'],
+        benefits_data['solar_export'],
+        benefits_data['power_savings'],
+        benefits_data['fuel_savings'],
+        0   # Net position placeholder
+    ]
+    
+    fig.add_trace(go.Waterfall(
+        name="Financial Breakdown",
+        orientation="v",
+        measure=measure,
+        x=x_data,
+        y=y_data,
+        connector={"line": {"color": "rgb(63, 63, 63)"}},
+        decreasing={"marker": {"color": "#EF553B"}},
+        increasing={"marker": {"color": "#00CC96"}},
+        totals={"marker": {"color": "#636EFA"}}
+    ))
+    
+    fig.update_layout(
+        title="Monthly Financial Breakdown",
+        showlegend=False,
+        height=500,
+        yaxis_title="Amount ($)",
+        xaxis_title="Components"
+    )
+    
+    return fig
 
 def main():
     st.set_page_config(page_title="Energy Package Designer", layout="wide")
@@ -373,89 +491,78 @@ def main():
 
     # Calculate ROI
     if st.button("Calculate Financial Benefits", type="primary"):
-        roi = roi_calc.calculate_roi(
+        detailed_roi = roi_calc.calculate_detailed_roi(
             packages.ev_packages[selected_ev],
             packages.battery_packages[selected_battery],
             packages.solar_packages[selected_solar],
             usage_profile
         )
         
+        # Summary metrics
+        current_month_data = detailed_roi[0]
+        
         st.header("Financial Summary")
         col1, col2, col3, col4 = st.columns(4)
         
+        total_costs = (current_month_data['costs']['loan_payment'] + 
+                      current_month_data['costs']['maintenance'])
+        total_benefits = sum(current_month_data['benefits'].values())
+        net_monthly = total_benefits - total_costs
+        
         with col1:
             st.metric(
-                "Monthly Package Payment",
-                f"${roi['monthly_payment']:.2f}"
+                "Monthly Package Cost",
+                f"${total_costs:.2f}",
+                help="Including loan payment and maintenance"
             )
         
         with col2:
             st.metric(
                 "Monthly Benefits",
-                f"${roi['monthly_benefit']:.2f}"
+                f"${total_benefits:.2f}",
+                help="Including all energy and fuel savings"
             )
             
         with col3:
             st.metric(
-                "Net Monthly Savings",
-                f"${roi['net_monthly']:.2f}",
-                delta=f"${roi['net_monthly'] - power_bill:.2f} vs current"
+                "Net Monthly Position",
+                f"${net_monthly:.2f}",
+                delta=f"${net_monthly - power_bill:.2f} vs current"
             )
             
         with col4:
             st.metric(
-                "Payback Period",
-                f"{roi['payback_years']:.1f} years"
+                "Battery & Solar Health",
+                f"{current_month_data['battery_health']:.1f}% / {current_month_data['solar_health']:.1f}%",
+                help="Battery capacity / Solar output vs new"
             )
         
-        # Detailed breakdown
-        st.subheader("Monthly Breakdown")
-        fig = go.Figure()
-        
-        # Revenue chart
-        revenues = {
-            'Energy Trading': roi['monthly_benefit'] * 0.3,
-            'Power Bill Savings': power_bill * 0.8,
-            'Fuel Savings': fuel_cost * 0.9
-        }
-        
-        colors = ['#2ecc71', '#3498db', '#e74c3c']
-        
-        fig.add_trace(go.Bar(
-            name='Monthly Benefits',
-            x=list(revenues.keys()),
-            y=list(revenues.values()),
-            marker_color=colors
-        ))
-        
-        fig.update_layout(
-            title='Monthly Benefit Breakdown',
-            yaxis_title='Amount ($)',
-            height=400,
-            showlegend=False
-        )
-        
+        # Monthly breakdown visualization
+        st.subheader("Monthly Financial Breakdown")
+        fig = visualize_monthly_breakdown(detailed_roi)
         st.plotly_chart(fig, use_container_width=True)
         
-        # Grid services
-        st.subheader("Grid Services Revenue")
+        # Detailed benefits breakdown
+        st.subheader("Energy Benefits Breakdown")
         col1, col2 = st.columns(2)
         
         with col1:
-            fcas_rev = aemo.calculate_fcas_revenue(battery.capacity)
-            st.metric(
-                "Monthly FCAS Revenue",
-                f"${fcas_rev:.2f}",
-                help="Revenue from frequency control ancillary services"
-            )
-            
+            benefits_data = current_month_data['benefits']
+            for benefit, amount in benefits_data.items():
+                st.metric(
+                    benefit.replace('_', ' ').title(),
+                    f"${amount:.2f}"
+                )
+        
         with col2:
-            dr_rev = aemo.calculate_demand_response_revenue(battery.capacity)
-            st.metric(
-                "Monthly Demand Response",
-                f"${dr_rev:.2f}",
-                help="Revenue from demand response events"
-            )
+            # Create a pie chart of benefits
+            fig = go.Figure(data=[go.Pie(
+                labels=list(benefits_data.keys()),
+                values=list(benefits_data.values()),
+                hole=.3
+            )])
+            fig.update_layout(title="Benefits Distribution")
+            st.plotly_chart(fig, use_container_width=True)
 
         # Package features
         st.subheader("Package Features")
