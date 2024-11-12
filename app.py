@@ -18,6 +18,7 @@ class EVPackage:
     base_price: float
     features: List[str]
     depreciation_rate: float  # Annual depreciation rate (%)
+    energy_consumption_per_km: float  # kWh per km
 
 @dataclass
 class BatteryPackage:
@@ -65,7 +66,8 @@ class EnergyPackages:
                 v2g_capable=True,
                 base_price=50000 * 0.95,  # Applying a 5% discount
                 features=['Vehicle-to-grid ready', 'Smart charging'],
-                depreciation_rate=15.0  # 15% annual depreciation
+                depreciation_rate=15.0,  # 15% annual depreciation
+                energy_consumption_per_km=0.15  # kWh per km
             ),
             'Performance': EVPackage(
                 model="Tesla Model 3",
@@ -75,7 +77,8 @@ class EnergyPackages:
                 v2g_capable=True,
                 base_price=65000 * 0.95,  # Applying a 5% discount
                 features=['Premium interior', '11kW AC charging', 'Autopilot'],
-                depreciation_rate=12.0  # 12% annual depreciation
+                depreciation_rate=12.0,  # 12% annual depreciation
+                energy_consumption_per_km=0.14  # kWh per km
             ),
             'Premium': EVPackage(
                 model="Tesla Model Y",
@@ -85,7 +88,8 @@ class EnergyPackages:
                 v2g_capable=True,
                 base_price=75000 * 0.95,  # Applying a 5% discount
                 features=['SUV format', 'Premium interior', 'All-wheel drive'],
-                depreciation_rate=10.0  # 10% annual depreciation
+                depreciation_rate=10.0,  # 10% annual depreciation
+                energy_consumption_per_km=0.16  # kWh per km
             )
         }
 
@@ -180,7 +184,7 @@ class EnergyPackages:
         }
 
 class ROICalculator:
-    def __init__(self, aemo_pricing, interest_rate, loan_term_years, installation_costs, maintenance_costs, solar_rebate_per_kw, battery_rebate, fbt_rate, lease_term_years, lease_interest_rate, residual_value_percentage):
+    def __init__(self, aemo_pricing, interest_rate, loan_term_years, installation_costs, maintenance_costs, solar_rebate_per_kw, battery_rebate, power_price_inflation, fuel_price_inflation):
         self.aemo_pricing = aemo_pricing
         self.interest_rate = interest_rate / 100.0  # Convert to decimal
         self.loan_term_years = loan_term_years
@@ -195,13 +199,9 @@ class ROICalculator:
         self.solar_rebate_per_kw = solar_rebate_per_kw
         self.battery_rebate = battery_rebate
 
-        # FBT Rate
-        self.fbt_rate = fbt_rate / 100.0  # Convert to decimal
-
-        # Lease Parameters
-        self.lease_term_years = lease_term_years
-        self.lease_interest_rate = lease_interest_rate / 100.0  # Convert to decimal
-        self.residual_value_percentage = residual_value_percentage / 100.0  # Convert to decimal
+        # Inflation rates
+        self.power_price_inflation = power_price_inflation / 100.0
+        self.fuel_price_inflation = fuel_price_inflation / 100.0
 
     def calculate_total_installation_cost(self, solar_capacity, battery_capacity):
         solar_install = (
@@ -225,30 +225,27 @@ class ROICalculator:
         battery_rebate = self.battery_rebate
         return solar_rebate + battery_rebate
 
-    def calculate_monthly_payment(self, principal, years=None, rate=None):
-        if years is None:
-            years = self.loan_term_years
-        if rate is None:
-            rate = self.interest_rate
-        monthly_rate = rate / 12
-        months = years * 12
-        return principal * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1)
+    def generate_amortization_schedule(self, principal, annual_interest_rate, loan_term_years):
+        schedule = []
+        monthly_interest_rate = annual_interest_rate / 12
+        months = loan_term_years * 12
+        monthly_payment = principal * (monthly_interest_rate * (1 + monthly_interest_rate) ** months) / ((1 + monthly_interest_rate) ** months - 1)
+        remaining_principal = principal
 
-    def calculate_lease_payment(self, car_value):
-        # Calculate monthly lease payment
-        residual_value = car_value * self.residual_value_percentage
-        lease_months = self.lease_term_years * 12
-        monthly_rate = self.lease_interest_rate / 12
-        lease_payment = (car_value - residual_value) * (monthly_rate * (1 + monthly_rate) ** lease_months) / ((1 + monthly_rate) ** lease_months - 1)
-        return lease_payment, residual_value
+        for month in range(1, months + 1):
+            interest_payment = remaining_principal * monthly_interest_rate
+            principal_payment = monthly_payment - interest_payment
+            remaining_principal -= principal_payment
+            schedule.append({
+                'month': month,
+                'interest_payment': interest_payment,
+                'principal_payment': principal_payment,
+                'remaining_principal': remaining_principal,
+                'total_payment': monthly_payment
+            })
+        return schedule
 
-    def calculate_fbt_savings(self, lease_payment):
-        # Simplified FBT savings calculation
-        annual_fbt_savings = lease_payment * 12 * self.fbt_rate
-        monthly_fbt_savings = annual_fbt_savings / 12
-        return monthly_fbt_savings
-
-    def calculate_detailed_roi(self, ev, battery, solar, usage_profile, power_price_inflation, fuel_price_inflation, years=10):
+    def calculate_detailed_roi(self, ev, battery, solar, usage_profile, years=10):
         months = years * 12
         monthly_data = []
 
@@ -265,25 +262,68 @@ class ROICalculator:
         }
 
         total_principal = sum(system_costs.values())
-        monthly_payment = self.calculate_monthly_payment(total_principal)
 
-        # Lease calculations
-        lease_payment, residual_value = self.calculate_lease_payment(ev.base_price)
-        monthly_fbt_savings = self.calculate_fbt_savings(lease_payment)
+        # Generate amortization schedule for the solar/battery loan
+        loan_schedule = self.generate_amortization_schedule(
+            principal=total_principal,
+            annual_interest_rate=self.interest_rate,
+            loan_term_years=self.loan_term_years
+        )
 
-        # Upgrade car twice over the period
-        lease_cycles = int(years / self.lease_term_years)
-        car_value = ev.base_price
+        # Initial EV purchase
+        ev_principal = ev.base_price
+
+        # Generate amortization schedule for the EV loan
+        ev_loan_schedule = self.generate_amortization_schedule(
+            principal=ev_principal,
+            annual_interest_rate=self.interest_rate,
+            loan_term_years=self.loan_term_years
+        )
+
+        # Prepare for EV replacement at year 5
+        ev_replacement_month = 5 * 12  # Replace at month 60
 
         for month in range(months):
             year = month / 12
 
-            # Check if it's time to upgrade the car
-            if month % (self.lease_term_years * 12) == 0 and month != 0:
-                # Assume the residual value is used towards the next car
-                car_value = car_value * (1 - ev.depreciation_rate / 100) ** self.lease_term_years
-                lease_payment, residual_value = self.calculate_lease_payment(car_value)
-                monthly_fbt_savings = self.calculate_fbt_savings(lease_payment)
+            # Handle EV replacement
+            if month == ev_replacement_month:
+                # Calculate depreciated value of old EV
+                old_ev_value = ev.base_price * ((1 - ev.depreciation_rate / 100) ** 5)
+                # Assume selling the old EV
+                trade_in_value = old_ev_value
+
+                # Purchase new EV
+                ev_principal = ev.base_price - trade_in_value  # Subtract trade-in value
+                # Generate new EV loan schedule
+                ev_loan_schedule = self.generate_amortization_schedule(
+                    principal=ev_principal,
+                    annual_interest_rate=self.interest_rate,
+                    loan_term_years=self.loan_term_years
+                )
+                ev_loan_start_month = month  # New EV loan starts now
+
+            # Get loan payments
+            if month < len(loan_schedule):
+                loan_payment_info = loan_schedule[month]
+                loan_payment = loan_payment_info['total_payment']
+                loan_interest = loan_payment_info['interest_payment']
+                loan_principal = loan_payment_info['principal_payment']
+            else:
+                loan_payment = 0
+                loan_interest = 0
+                loan_principal = 0
+
+            # EV loan payments
+            if month < len(ev_loan_schedule):
+                ev_loan_payment_info = ev_loan_schedule[month]
+                ev_loan_payment = ev_loan_payment_info['total_payment']
+                ev_loan_interest = ev_loan_payment_info['interest_payment']
+                ev_loan_principal = ev_loan_payment_info['principal_payment']
+            else:
+                ev_loan_payment = 0
+                ev_loan_interest = 0
+                ev_loan_principal = 0
 
             # Calculate degradation factors
             battery_capacity_factor = (1 - self.maintenance_costs['battery']['degradation']) ** year
@@ -304,33 +344,57 @@ class ROICalculator:
                 'battery_maintenance': self.maintenance_costs['battery']['annual_check'] / 12
             }
 
+            # Calculate EV energy consumption
+            monthly_km_driven = usage_profile['daily_commute'] * 30  # Assuming 30 days per month
+            monthly_ev_energy_consumption = monthly_km_driven * ev.energy_consumption_per_km  # kWh per month
+
+            # Calculate cost of charging EV
+            solar_ev_charging_percentage = 0.5  # 50% charged from solar
+            solar_ev_energy_consumption = monthly_ev_energy_consumption * solar_ev_charging_percentage
+            grid_ev_energy_consumption = monthly_ev_energy_consumption * (1 - solar_ev_charging_percentage)
+
+            # Cost of solar charging is opportunity cost (feed-in tariff)
+            solar_ev_charging_cost = solar_ev_energy_consumption * self.aemo_pricing.feed_in_tariff
+            # Cost of grid charging at off-peak rates
+            grid_ev_charging_cost = grid_ev_energy_consumption * self.aemo_pricing.tariff_rates['off_peak']
+
+            total_ev_charging_cost = solar_ev_charging_cost + grid_ev_charging_cost
+
             # Calculate energy benefits
             energy_benefits = {
                 'arbitrage': self.aemo_pricing.calculate_arbitrage_potential(
                     battery.capacity * battery_capacity_factor
                 ),
                 'solar_export': (solar.capacity * solar_output_factor * 4 * 30 * self.aemo_pricing.feed_in_tariff),
-                'power_savings': usage_profile['power_bill'] * 0.8 * (1 + power_price_inflation) ** year,
-                'fuel_savings': usage_profile['fuel_cost'] * 0.9 * (1 + fuel_price_inflation) ** year,
+                'power_savings': usage_profile['power_bill'] * 0.8 * (1 + self.power_price_inflation) ** year,
+                'fuel_savings': usage_profile['fuel_cost'] * (1 + self.fuel_price_inflation) ** year,
                 'v2g_revenue': self.aemo_pricing.feed_in_tariff * ev.battery_capacity * 0.1 * 30,
-                'fbt_savings': monthly_fbt_savings
             }
 
-            total_monthly_cost = monthly_payment + sum(maintenance.values()) + lease_payment
-            total_monthly_benefits = sum(energy_benefits.values())
+            # Net fuel savings after accounting for EV charging cost
+            net_fuel_savings = energy_benefits['fuel_savings'] - total_ev_charging_cost
+
+            total_benefits = sum(energy_benefits.values()) - total_ev_charging_cost  # Subtract EV charging cost
+
+            total_costs = loan_payment + ev_loan_payment + sum(maintenance.values())
+
+            net_position = total_benefits - total_costs
 
             monthly_data.append({
                 'month': month,
                 'year': year,
                 'costs': {
-                    'loan_payment': monthly_payment,
-                    'lease_payment': lease_payment,
+                    'loan_payment': loan_payment,
+                    'ev_loan_payment': ev_loan_payment,
                     'maintenance': sum(maintenance.values()),
-                    'maintenance_breakdown': maintenance
+                    'maintenance_breakdown': maintenance,
+                    'ev_charging_cost': total_ev_charging_cost
                 },
                 'benefits': energy_benefits,
+                'net_fuel_savings': net_fuel_savings,
                 'battery_health': battery_capacity_factor * 100,
-                'solar_health': solar_output_factor * 100
+                'solar_health': solar_output_factor * 100,
+                'net_position': net_position
             })
 
         return monthly_data
@@ -342,11 +406,12 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
     benefits = data['benefits']
 
     waterfall_data = {
-        'Components': ['Loan Payment', 'Lease Payment', 'EV Maintenance', 'Solar Maintenance', 'Battery Maintenance', 'Total Costs',
-                       'Arbitrage', 'Solar Export', 'Power Savings', 'Fuel Savings', 'V2G Revenue', 'FBT Savings', 'Total Benefits', 'Net Position'],
+        'Components': ['Loan Payment', 'EV Loan Payment', 'EV Charging Cost', 'EV Maintenance', 'Solar Maintenance', 'Battery Maintenance', 'Total Costs',
+                       'Arbitrage', 'Solar Export', 'Power Savings', 'Fuel Savings', 'V2G Revenue', 'Total Benefits', 'Net Position'],
         'Amount': [
             -costs['loan_payment'],
-            -costs['lease_payment'],
+            -costs['ev_loan_payment'],
+            -costs['ev_charging_cost'],
             -costs['maintenance_breakdown']['ev_maintenance'],
             -costs['maintenance_breakdown']['solar_maintenance'],
             -costs['maintenance_breakdown']['battery_maintenance'],
@@ -356,18 +421,17 @@ def visualize_monthly_breakdown(monthly_data, month_index=0):
             benefits['power_savings'],
             benefits['fuel_savings'],
             benefits['v2g_revenue'],
-            benefits['fbt_savings'],
             0,  # Placeholder for total benefits
             0   # Placeholder for net position
         ],
-        'Measure': ['relative'] * 5 + ['total'] + ['relative'] * 6 + ['total', 'total']
+        'Measure': ['relative'] * 6 + ['total'] + ['relative'] * 5 + ['total', 'total']
     }
 
     # Calculate totals
-    total_costs = sum(waterfall_data['Amount'][:5])
-    waterfall_data['Amount'][5] = total_costs
+    total_costs = sum(waterfall_data['Amount'][:6])
+    waterfall_data['Amount'][6] = total_costs
 
-    total_benefits = sum(waterfall_data['Amount'][6:12])
+    total_benefits = sum(waterfall_data['Amount'][7:12])
     waterfall_data['Amount'][12] = total_benefits
 
     net_position = total_costs + total_benefits
@@ -538,12 +602,6 @@ def main():
         solar_rebate_per_kw = st.number_input("Solar Rebate per kW ($)", min_value=0, value=700)
         battery_rebate = st.number_input("Battery Rebate ($)", min_value=0, value=4000)
 
-        st.markdown("#### Leasing Assumptions")
-        lease_term_years = st.number_input("Lease Term (years)", min_value=1, max_value=5, value=4)
-        lease_interest_rate = st.number_input("Lease Interest Rate (%)", min_value=0.0, max_value=10.0, value=5.0, step=0.1)
-        residual_value_percentage = st.number_input("Residual Value (% of car price)", min_value=0.0, max_value=100.0, value=50.0, step=1.0)
-        fbt_rate = st.number_input("FBT Rate (%)", min_value=0.0, max_value=100.0, value=20.0, step=1.0)
-
     # Create installation_costs and maintenance_costs dictionaries
     installation_costs = {
         'solar': {
@@ -585,10 +643,8 @@ def main():
         maintenance_costs=maintenance_costs,
         solar_rebate_per_kw=solar_rebate_per_kw,
         battery_rebate=battery_rebate,
-        fbt_rate=fbt_rate,
-        lease_term_years=lease_term_years,
-        lease_interest_rate=lease_interest_rate,
-        residual_value_percentage=residual_value_percentage
+        power_price_inflation=power_price_inflation,
+        fuel_price_inflation=fuel_price_inflation
     )
 
     # Calculate ROI
@@ -597,9 +653,7 @@ def main():
             packages.ev_packages[selected_ev],
             packages.battery_packages[selected_battery],
             packages.solar_packages[selected_solar],
-            usage_profile,
-            power_price_inflation=power_price_inflation / 100.0,
-            fuel_price_inflation=fuel_price_inflation / 100.0
+            usage_profile
         )
 
         # Summary metrics
@@ -608,8 +662,9 @@ def main():
         col1, col2, col3, col4 = st.columns(4)
 
         total_costs = (current_month_data['costs']['loan_payment'] +
+                       current_month_data['costs']['ev_loan_payment'] +
                        current_month_data['costs']['maintenance'] +
-                       current_month_data['costs']['lease_payment'])
+                       current_month_data['costs']['ev_charging_cost'])
         total_benefits = sum(current_month_data['benefits'].values())
         net_monthly = total_benefits - total_costs
 
@@ -617,7 +672,7 @@ def main():
             st.metric(
                 "Monthly Package Cost",
                 f"${total_costs:,.2f}",
-                help="Including loan payment, lease payment, and maintenance"
+                help="Including loan payments, EV charging, and maintenance"
             )
 
         with col2:
@@ -649,9 +704,9 @@ def main():
 
         # Create DataFrame for plotting over time
         df_roi = pd.DataFrame(detailed_roi)
-        df_roi['total_costs'] = df_roi['costs'].apply(lambda x: x['loan_payment'] + x['maintenance'] + x['lease_payment'])
+        df_roi['total_costs'] = df_roi['costs'].apply(lambda x: x['loan_payment'] + x['ev_loan_payment'] + x['maintenance'] + x['ev_charging_cost'])
         df_roi['total_benefits'] = df_roi['benefits'].apply(lambda x: sum(x.values()))
-        df_roi['net_position'] = df_roi['total_benefits'] - df_roi['total_costs']
+        df_roi['net_position'] = df_roi['net_position']
         df_roi['cumulative_net_position'] = df_roi['net_position'].cumsum()
         df_roi['year'] = df_roi['year']
 
@@ -742,8 +797,7 @@ def main():
         st.markdown("---")
         st.caption(
             "Note: All calculations are estimates based on current market rates and "
-            "typical usage patterns. Actual results may vary. Government rebates are included in the calculations. "
-            "FBT savings are simplified and for illustrative purposes. Consult a tax professional for detailed advice."
+            "typical usage patterns. Actual results may vary. Government rebates are included in the calculations."
         )
 
 if __name__ == "__main__":
