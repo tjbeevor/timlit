@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 import plotly.graph_objects as go
+import plotly.express as px
 
 # Data Classes
 @dataclass
@@ -15,7 +16,6 @@ class EVPackage:
     charging_power: float  # kW
     v2g_capable: bool
     base_price: float
-    profit_share: float
     features: List[str]
 
 @dataclass
@@ -25,8 +25,6 @@ class BatteryPackage:
     cycles: int
     warranty_years: int
     base_price: float
-    profit_share: float
-    grid_share: float
     features: List[str]
 
 @dataclass
@@ -41,176 +39,106 @@ class SolarPackage:
 
 class AEMOPricing:
     def __init__(self):
-        self.price_patterns = {
-            'summer_peak': {
-                'extreme': {'price': 15.0, 'probability': 0.02},
-                'high': {'price': 0.45, 'probability': 0.15},
-                'medium': {'price': 0.32, 'probability': 0.33},
-                'low': {'price': 0.25, 'probability': 0.50}
-            },
-            'summer_offpeak': {
-                'high': {'price': 0.15, 'probability': 0.10},
-                'medium': {'price': 0.08, 'probability': 0.40},
-                'low': {'price': 0.03, 'probability': 0.50}
-            },
-            'winter_peak': {
-                'extreme': {'price': 8.0, 'probability': 0.01},
-                'high': {'price': 0.38, 'probability': 0.20},
-                'medium': {'price': 0.28, 'probability': 0.30},
-                'low': {'price': 0.22, 'probability': 0.49}
-            },
-            'winter_offpeak': {
-                'high': {'price': 0.12, 'probability': 0.15},
-                'medium': {'price': 0.06, 'probability': 0.35},
-                'low': {'price': 0.03, 'probability': 0.50}
-            }
+        self.tariff_rates = {
+            'peak': 0.30,        # $/kWh
+            'off_peak': 0.15     # $/kWh
         }
-        
-        self.fcas_revenue = {
-            'raise_6s': 0.08,
-            'raise_60s': 0.05,
-            'raise_5min': 0.03,
-            'lower_6s': 0.04,
-            'lower_60s': 0.03,
-            'lower_5min': 0.02
-        }
-        
-        self.demand_response = {
-            'extreme': {'payment': 2.0, 'events_per_year': 5},
-            'high': {'payment': 1.0, 'events_per_year': 15},
-            'medium': {'payment': 0.5, 'events_per_year': 30}
-        }
+        self.feed_in_tariff = 0.10  # $/kWh
 
     def calculate_arbitrage_potential(self, battery_capacity, efficiency=0.9):
-        seasons = ['summer_peak', 'summer_offpeak', 'winter_peak', 'winter_offpeak']
-        annual_revenue = 0
-        
-        for season in seasons:
-            season_days = 91.25
-            daily_revenue = 0
-            for level, details in self.price_patterns[season].items():
-                if 'offpeak' in season and level == 'low':
-                    daily_revenue -= battery_capacity * details['price'] * details['probability']
-                else:
-                    daily_revenue += battery_capacity * details['price'] * details['probability'] * efficiency
-            annual_revenue += daily_revenue * season_days
-        return annual_revenue / 12
-
-    def calculate_fcas_revenue(self, battery_capacity, availability=0.95):
-        monthly_revenue = 0
-        for service, rate in self.fcas_revenue.items():
-            if '6s' in service:
-                participation = 0.10
-            elif '60s' in service:
-                participation = 0.15
-            else:
-                participation = 0.25
-            service_capacity = battery_capacity * participation
-            monthly_revenue += service_capacity * rate * 24 * 30 * availability
+        daily_cycles = 1  # Assuming one full charge/discharge per day
+        daily_savings = daily_cycles * battery_capacity * efficiency * (
+            self.tariff_rates['peak'] - self.tariff_rates['off_peak']
+        )
+        monthly_revenue = daily_savings * 30  # Approximate monthly revenue
         return monthly_revenue
-
-    def calculate_demand_response_revenue(self, battery_capacity, reliability=0.95):
-        annual_revenue = 0
-        for level, details in self.demand_response.items():
-            event_revenue = battery_capacity * details['payment'] * reliability
-            annual_revenue += event_revenue * details['events_per_year']
-        return annual_revenue / 12
 
 class EnergyPackages:
     def __init__(self):
         self.ev_packages = {
             'Essential': EVPackage(
-                model="BYD Atto 3",
-                battery_capacity=60.0,
-                range=400,
-                charging_power=7.0,
+                model="Nissan Leaf",
+                battery_capacity=40.0,
+                range=270,
+                charging_power=6.6,
                 v2g_capable=True,
-                base_price=48000,
-                profit_share=0.15,
-                features=['Vehicle-to-grid ready', 'Smart charging', '7kW AC charging']
+                base_price=50000,
+                features=['Vehicle-to-grid ready', 'Smart charging']
             ),
             'Performance': EVPackage(
                 model="Tesla Model 3",
-                battery_capacity=75.0,
-                range=510,
+                battery_capacity=54.0,
+                range=490,
                 charging_power=11.0,
                 v2g_capable=True,
                 base_price=65000,
-                profit_share=0.12,
-                features=['Premium interior', '11kW AC charging', 'Advanced autopilot']
+                features=['Premium interior', '11kW AC charging', 'Autopilot']
             ),
             'Premium': EVPackage(
                 model="Tesla Model Y",
-                battery_capacity=82.0,
-                range=530,
+                battery_capacity=75.0,
+                range=505,
                 charging_power=11.0,
                 v2g_capable=True,
                 base_price=75000,
-                profit_share=0.12,
-                features=['SUV format', 'Premium interior', '11kW AC charging']
+                features=['SUV format', 'Premium interior', 'All-wheel drive']
             )
         }
 
         self.battery_packages = {
             'Starter': BatteryPackage(
+                capacity=6.5,
+                peak_power=3.3,
+                cycles=5000,
+                warranty_years=10,
+                base_price=7000,
+                features=['Backup power', 'Solar integration', 'Monitoring']
+            ),
+            'Essential': BatteryPackage(
                 capacity=10.0,
                 peak_power=5.0,
                 cycles=6000,
                 warranty_years=10,
-                base_price=8500,
-                profit_share=0.20,
-                grid_share=0.30,
-                features=['Basic backup power', 'Solar integration', 'Smart monitoring']
-            ),
-            'Essential': BatteryPackage(
-                capacity=15.0,
-                peak_power=7.5,
-                cycles=6000,
-                warranty_years=10,
-                base_price=12000,
-                profit_share=0.18,
-                grid_share=0.30,
-                features=['Extended backup power', 'Solar integration', 'Smart monitoring']
+                base_price=10000,
+                features=['Extended backup power', 'Smart monitoring']
             ),
             'Performance': BatteryPackage(
-                capacity=20.0,
-                peak_power=10.0,
-                cycles=8000,
-                warranty_years=12,
-                base_price=15000,
-                profit_share=0.15,
-                grid_share=0.30,
-                features=['Whole home backup', 'Advanced monitoring', 'FCAS participation']
+                capacity=13.5,
+                peak_power=5.0,
+                cycles=7000,
+                warranty_years=10,
+                base_price=13500,
+                features=['Whole home backup', 'Advanced monitoring']
             )
         }
 
         self.solar_packages = {
             'Starter': SolarPackage(
-                capacity=6.6,
-                panel_count=12,
-                panel_power=550,
-                inverter_size=5.0,
-                base_price=7500,
+                capacity=3.3,
+                panel_count=10,
+                panel_power=330,
+                inverter_size=3.0,
+                base_price=5000,
                 warranty_years=10,
-                features=['Basic monitoring', 'Single phase']
+                features=['Basic monitoring']
             ),
             'Essential': SolarPackage(
-                capacity=8.8,
-                panel_count=16,
-                panel_power=550,
-                inverter_size=8.0,
-                base_price=10000,
-                warranty_years=12,
-                features=['Advanced monitoring', 'Single phase', 'Panel optimization']
+                capacity=6.6,
+                panel_count=20,
+                panel_power=330,
+                inverter_size=5.0,
+                base_price=8000,
+                warranty_years=10,
+                features=['Advanced monitoring', 'Panel optimization']
             ),
             'Performance': SolarPackage(
-                capacity=13.2,
-                panel_count=24,
-                panel_power=550,
-                inverter_size=10.0,
-                base_price=15000,
-                warranty_years=12,
-                features=['Premium panels', 'Three phase', 'Panel optimization']
+                capacity=10.0,
+                panel_count=30,
+                panel_power=330,
+                inverter_size=8.0,
+                base_price=12000,
+                warranty_years=10,
+                features=['Premium panels', 'Panel optimization']
             )
         }
 
@@ -233,9 +161,9 @@ class EnergyPackages:
         else:
             batt_rec = 'Performance'
 
-        if roof_space <= 30:
+        if roof_space <= 20:
             solar_rec = 'Starter'
-        elif roof_space <= 45:
+        elif roof_space <= 40:
             solar_rec = 'Essential'
         else:
             solar_rec = 'Performance'
@@ -249,39 +177,39 @@ class EnergyPackages:
 class ROICalculator:
     def __init__(self, aemo_pricing):
         self.aemo_pricing = aemo_pricing
-        self.interest_rate = 0.049  # 4.9% p.a.
-        self.loan_term_years = 5
-        
+        self.interest_rate = 0.045  # 4.5% p.a.
+        self.loan_term_years = 7  # Extended loan term for affordability
+
         # Installation costs
         self.installation_costs = {
             'solar': {
-                'base': 1500,  # Base installation fee
-                'per_kw': 200,  # Additional cost per kW
+                'base': 1000,  # Base installation fee
+                'per_kw': 600,  # Additional cost per kW
                 'inverter': 2000  # Inverter cost
             },
             'battery': {
-                'base': 2000,  # Base installation fee
-                'wiring': 1500  # Electrical work
+                'base': 1500,  # Base installation fee
+                'wiring': 1000  # Electrical work
             }
         }
-        
+
         # Maintenance costs
         self.maintenance_costs = {
             'ev': {
-                'annual_service': 800,  # Annual service cost
-                'tires': 1200,  # Every 40,000 km
+                'annual_service': 300,  # Annual service cost
+                'tires': 800,  # Every 40,000 km
                 'insurance': 1200,  # Annual insurance
                 'registration': 800,  # Annual registration
-                'battery_degradation': 0.02  # 2% capacity loss per year
+                'battery_degradation': 0.01  # 1% capacity loss per year
             },
             'solar': {
-                'cleaning': 300,  # Annual cleaning
+                'cleaning': 200,  # Annual cleaning
                 'inverter_replacement': 2000,  # Every 10 years
-                'degradation': 0.007  # 0.7% annual output degradation
+                'degradation': 0.005  # 0.5% annual output degradation
             },
             'battery': {
-                'annual_check': 250,  # Annual health check
-                'degradation': 0.03,  # 3% capacity loss per year
+                'annual_check': 150,  # Annual health check
+                'degradation': 0.02,  # 2% capacity loss per year
                 'replacement': 10  # Expected life in years
             }
         }
@@ -292,89 +220,83 @@ class ROICalculator:
             self.installation_costs['solar']['per_kw'] * solar_capacity +
             self.installation_costs['solar']['inverter']
         )
-        
+
         battery_install = (
             self.installation_costs['battery']['base'] +
             self.installation_costs['battery']['wiring']
         )
-        
-        return solar_install + battery_install
 
-    def calculate_monthly_payment(self, principal, years=5, rate=0.049):
+        total_cost = solar_install + battery_install
+        # Subtract government rebates
+        total_rebates = self.get_total_rebates(solar_capacity, battery_capacity)
+        return total_cost - total_rebates
+
+    def get_total_rebates(self, solar_capacity, battery_capacity):
+        solar_rebate = solar_capacity * 700  # Example rebate per kW
+        battery_rebate = 3500  # Fixed battery rebate
+        return solar_rebate + battery_rebate
+
+    def calculate_monthly_payment(self, principal, years=None, rate=None):
+        if years is None:
+            years = self.loan_term_years
+        if rate is None:
+            rate = self.interest_rate
         monthly_rate = rate / 12
         months = years * 12
-        return principal * (monthly_rate * (1 + monthly_rate)**months) / ((1 + monthly_rate)**months - 1)
+        return principal * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1)
 
     def calculate_detailed_roi(self, ev, battery, solar, usage_profile, years=10):
         months = years * 12
         monthly_data = []
-        
+
         # Calculate total system cost
         installation_cost = self.calculate_total_installation_cost(
-            solar.capacity, 
+            solar.capacity,
             battery.capacity
         )
-        
+
         system_costs = {
             'ev': ev.base_price,
             'battery': battery.base_price,
             'solar': solar.base_price,
             'installation': installation_cost
         }
-        
+
         total_principal = sum(system_costs.values())
         monthly_payment = self.calculate_monthly_payment(total_principal)
 
         for month in range(months):
             year = month / 12
-            
+
             # Calculate degradation factors
             battery_capacity_factor = (1 - self.maintenance_costs['battery']['degradation']) ** year
             solar_output_factor = (1 - self.maintenance_costs['solar']['degradation']) ** year
-            
+
             # Calculate maintenance costs
             maintenance = {
                 'ev_maintenance': (
                     self.maintenance_costs['ev']['annual_service'] / 12 +
-                    self.maintenance_costs['ev']['tires'] / 48 +
+                    self.maintenance_costs['ev']['tires'] / (4 * 12) +  # Assuming tires every 4 years
                     self.maintenance_costs['ev']['insurance'] / 12 +
                     self.maintenance_costs['ev']['registration'] / 12
                 ),
                 'solar_maintenance': (
                     self.maintenance_costs['solar']['cleaning'] / 12 +
-                    self.maintenance_costs['solar']['inverter_replacement'] / 120
+                    self.maintenance_costs['solar']['inverter_replacement'] / (10 * 12)  # Every 10 years
                 ),
                 'battery_maintenance': self.maintenance_costs['battery']['annual_check'] / 12
             }
-            
+
             # Calculate energy benefits
             energy_benefits = {
                 'arbitrage': self.aemo_pricing.calculate_arbitrage_potential(
                     battery.capacity * battery_capacity_factor
                 ),
-                'fcas': self.aemo_pricing.calculate_fcas_revenue(
-                    battery.capacity * battery_capacity_factor
-                ),
-                'demand_response': self.aemo_pricing.calculate_demand_response_revenue(
-                    battery.capacity * battery_capacity_factor
-                ),
-                'solar_export': (solar.capacity * solar_output_factor * 4 * 30 * 0.10),
-                'power_savings': usage_profile['power_bill'] * 0.8 * (1 + 0.04) ** year,
-                'fuel_savings': usage_profile['fuel_cost'] * 0.9 * (1 + 0.03) ** year
+                'solar_export': (solar.capacity * solar_output_factor * 4 * 30 * self.aemo_pricing.feed_in_tariff),
+                'power_savings': usage_profile['power_bill'] * 0.8 * (1 + 0.03) ** year,
+                'fuel_savings': usage_profile['fuel_cost'] * 0.9 * (1 + 0.02) ** year
             }
-            
-            # Profit sharing calculations
-            trading_revenue = (
-                energy_benefits['arbitrage'] +
-                energy_benefits['fcas'] +
-                energy_benefits['demand_response']
-            )
-            profit_sharing = {
-                'customer_share': trading_revenue * (1 - ev.profit_share - battery.profit_share),
-                'ev_share': trading_revenue * ev.profit_share,
-                'battery_share': trading_revenue * battery.profit_share
-            }
-            
+
             monthly_data.append({
                 'month': month,
                 'year': year,
@@ -384,54 +306,56 @@ class ROICalculator:
                     'maintenance_breakdown': maintenance
                 },
                 'benefits': energy_benefits,
-                'profit_sharing': profit_sharing,
                 'battery_health': battery_capacity_factor * 100,
                 'solar_health': solar_output_factor * 100
             })
-            
+
         return monthly_data
 
 def visualize_monthly_breakdown(monthly_data, month_index=0):
     """Create visualization of monthly costs and benefits"""
-    fig = go.Figure()
-    
-    costs_data = monthly_data[month_index]['costs']
-    benefits_data = monthly_data[month_index]['benefits']
-    
-    # Waterfall chart data
-    measure = ['relative', 'relative', 'relative', 'relative', 'total', 
-              'relative', 'relative', 'relative', 'relative', 'relative', 'relative', 'total']
-    
-    x_data = ['Loan Payment', 'EV Maintenance', 'Solar Maintenance', 'Battery Maintenance', 
-              'Total Costs', 'Arbitrage', 'FCAS Revenue', 'Demand Response', 'Solar Export', 
-              'Power Savings', 'Fuel Savings', 'Net Position']
-    
-    y_data = [
-        -costs_data['loan_payment'],
-        -costs_data['maintenance_breakdown']['ev_maintenance'],
-        -costs_data['maintenance_breakdown']['solar_maintenance'],
-        -costs_data['maintenance_breakdown']['battery_maintenance'],
-        0,  # Total costs placeholder
-        benefits_data['arbitrage'],
-        benefits_data['fcas'],
-        benefits_data['demand_response'],
-        benefits_data['solar_export'],
-        benefits_data['power_savings'],
-        benefits_data['fuel_savings'],
-        0  # Net position placeholder
-    ]
+    data = monthly_data[month_index]
+    costs = data['costs']
+    benefits = data['benefits']
 
-    fig.add_trace(go.Waterfall(
-        name="Financial Breakdown",
-        orientation="v",
-        measure=measure,
-        x=x_data,
-        y=y_data,
-        connector={"line": {"color": "rgb(63, 63, 63)"}},
-        decreasing={"marker": {"color": "#E82127"}},  # Red for costs
-        increasing={"marker": {"color": "#000000"}},  # Black for benefits
-        totals={"marker": {"color": "#808080"}},  # Grey for totals
-        hovertemplate='%{x}: %{y:$,.2f}<extra></extra>'
+    waterfall_data = {
+        'Components': ['Loan Payment', 'EV Maintenance', 'Solar Maintenance', 'Battery Maintenance', 'Total Costs',
+                       'Arbitrage', 'Solar Export', 'Power Savings', 'Fuel Savings', 'Total Benefits', 'Net Position'],
+        'Amount': [
+            -costs['loan_payment'],
+            -costs['maintenance_breakdown']['ev_maintenance'],
+            -costs['maintenance_breakdown']['solar_maintenance'],
+            -costs['maintenance_breakdown']['battery_maintenance'],
+            0,  # Placeholder for total costs
+            benefits['arbitrage'],
+            benefits['solar_export'],
+            benefits['power_savings'],
+            benefits['fuel_savings'],
+            0,  # Placeholder for total benefits
+            0   # Placeholder for net position
+        ],
+        'Measure': ['relative'] * 4 + ['total'] + ['relative'] * 4 + ['total', 'total']
+    }
+
+    # Calculate totals
+    total_costs = sum(waterfall_data['Amount'][:4])
+    waterfall_data['Amount'][4] = total_costs
+
+    total_benefits = sum(waterfall_data['Amount'][5:9])
+    waterfall_data['Amount'][9] = total_benefits
+
+    net_position = total_costs + total_benefits
+    waterfall_data['Amount'][10] = net_position
+
+    fig = go.Figure(go.Waterfall(
+        x=waterfall_data['Components'],
+        y=waterfall_data['Amount'],
+        measure=waterfall_data['Measure'],
+        text=[f"${x:,.2f}" for x in waterfall_data['Amount']],
+        textposition="outside",
+        decreasing={"marker": {"color": "#E82127"}},
+        increasing={"marker": {"color": "#000000"}},
+        totals={"marker": {"color": "#808080"}},
     ))
 
     fig.update_layout(
@@ -452,18 +376,20 @@ def main():
     st.set_page_config(page_title="Energy Package Designer", layout="wide")
 
     # Custom CSS to adjust the look and feel
-    st.markdown("""<style>
-.css-18e3th9 {padding: 0;}
-.stButton>button {
-    background-color: #E82127;
-    color: #FFFFFF;
-    border-radius: 5px;
-    height: 3em;
-    width: 100%;
-    font-size: 1.2em;
-}
-.stMetric {font-size: 1.5em;}
-</style>""", unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    .css-18e3th9 {padding: 0;}
+    .stButton>button {
+        background-color: #E82127;
+        color: #FFFFFF;
+        border-radius: 5px;
+        height: 3em;
+        width: 100%;
+        font-size: 1.2em;
+    }
+    .stMetric {font-size: 1.5em;}
+    </style>
+    """, unsafe_allow_html=True)
 
     st.markdown("<h1 style='font-size:48px; color:#000000;'>⚡ Energy Independence Package Designer</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='color:#000000;'>Design your complete energy solution</h3>", unsafe_allow_html=True)
@@ -478,8 +404,8 @@ def main():
     with col1:
         st.markdown("<h2 style='color:#000000;'>Your Energy Profile</h2>", unsafe_allow_html=True)
         daily_commute = st.slider("Daily Commute (km)", 0, 200, 40)
-        power_bill = st.number_input("Monthly Power Bill ($)", 0, 1000, 250)
-        fuel_cost = st.number_input("Monthly Fuel Cost ($)", 0, 1000, 200)
+        power_bill = st.number_input("Monthly Power Bill ($)", min_value=0.0, value=250.0)
+        fuel_cost = st.number_input("Monthly Fuel Cost ($)", min_value=0.0, value=200.0)
         roof_space = st.slider("Available Roof Space (m²)", 0, 100, 40)
 
         usage_profile = {
@@ -516,6 +442,9 @@ def main():
         st.write(f"🚗 **Model:** {ev.model}")
         st.write(f"⚡ **Battery Capacity:** {ev.battery_capacity} kWh")
         st.write(f"🛣️ **Range:** {ev.range} km")
+        st.write(f"✨ **Features:**")
+        for feature in ev.features:
+            st.write(f"- {feature}")
 
     with col2:
         selected_battery = st.selectbox(
@@ -528,6 +457,9 @@ def main():
         st.write(f"🔋 **Capacity:** {battery.capacity} kWh")
         st.write(f"⚡ **Peak Power:** {battery.peak_power} kW")
         st.write(f"✨ **Warranty:** {battery.warranty_years} years")
+        st.write(f"✨ **Features:**")
+        for feature in battery.features:
+            st.write(f"- {feature}")
 
     with col3:
         selected_solar = st.selectbox(
@@ -540,6 +472,9 @@ def main():
         st.write(f"☀️ **System Size:** {solar.capacity} kW")
         st.write(f"📊 **Panels:** {solar.panel_count} x {solar.panel_power} W")
         st.write(f"✨ **Warranty:** {solar.warranty_years} years")
+        st.write(f"✨ **Features:**")
+        for feature in solar.features:
+            st.write(f"- {feature}")
 
     # Calculate ROI
     if st.button("Calculate Financial Benefits"):
@@ -553,11 +488,11 @@ def main():
         # Summary metrics
         current_month_data = detailed_roi[0]
         st.markdown("<h1 style='color:#000000;'>Financial Summary</h1>", unsafe_allow_html=True)
-        
+
         col1, col2, col3, col4 = st.columns(4)
-        
-        total_costs = (current_month_data['costs']['loan_payment'] + 
-                      current_month_data['costs']['maintenance'])
+
+        total_costs = (current_month_data['costs']['loan_payment'] +
+                       current_month_data['costs']['maintenance'])
         total_benefits = sum(current_month_data['benefits'].values())
         net_monthly = total_benefits - total_costs
 
@@ -576,7 +511,7 @@ def main():
             )
 
         with col3:
-            delta_value = net_monthly - usage_profile['power_bill'] - usage_profile['fuel_cost']
+            delta_value = net_monthly - (usage_profile['power_bill'] + usage_profile['fuel_cost'])
             st.metric(
                 "Net Monthly Position",
                 f"${net_monthly:,.2f}",
@@ -609,20 +544,13 @@ def main():
 
         with col2:
             # Create a pie chart of benefits
-            fig = go.Figure(data=[go.Pie(
-                labels=[benefit.replace('_', ' ').title() for benefit in benefits_data.keys()],
-                values=list(benefits_data.values()),
-                hole=.3,
-                hovertemplate='%{label}: %{value:$,.2f}<extra></extra>'
-            )])
-            
-            fig.update_layout(
+            labels = [benefit.replace('_', ' ').title() for benefit in benefits_data.keys()]
+            values = list(benefits_data.values())
+            fig = px.pie(
+                names=labels,
+                values=values,
                 title="Benefits Distribution",
-                font=dict(
-                    family="Helvetica, Arial, sans-serif",
-                    size=14,
-                    color="#000000"
-                )
+                hole=0.4
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -649,16 +577,8 @@ def main():
         st.markdown("---")
         st.caption(
             "Note: All calculations are estimates based on current market rates and "
-            "typical usage patterns. Actual results may vary. FCAS and demand response "
-            "revenues are subject to market conditions and availability."
+            "typical usage patterns. Actual results may vary. Government rebates are included in the calculations."
         )
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-    
