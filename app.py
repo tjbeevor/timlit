@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -40,7 +39,6 @@ class SolarPackage:
     warranty_years: int
     features: List[str]
 
-# AEMO Pricing Class
 class AEMOPricing:
     def __init__(self):
         self.price_patterns = {
@@ -126,7 +124,6 @@ class AEMOPricing:
         
         return annual_revenue / 12
 
-# Package definitions
 class EnergyPackages:
     def __init__(self):
         self.ev_packages = {
@@ -230,7 +227,6 @@ class EnergyPackages:
         power_bill = usage_profile.get('power_bill', 0)
         roof_space = usage_profile.get('roof_space', 0)
         
-        # Basic recommendation logic
         if daily_commute <= 40:
             ev_rec = 'Essential'
         elif daily_commute <= 80:
@@ -315,7 +311,7 @@ def main():
         power_bill = st.number_input("Monthly Power Bill ($)", 0, 1000, 250)
         fuel_cost = st.number_input("Monthly Fuel Cost ($)", 0, 1000, 200)
         roof_space = st.slider("Available Roof Space (m²)", 0, 100, 40)
-        
+    
     usage_profile = {
         'daily_commute': daily_commute,
         'power_bill': power_bill,
@@ -374,43 +370,43 @@ def main():
         st.write(f"☀️ {solar.capacity}kW system")
         st.write(f"📊 {solar.panel_count}x {solar.panel_power}W panels")
         st.write(f"✨ {solar.warranty_years} year warranty")
-    
+
     # Calculate ROI
-     if st.button("Calculate Financial Benefits", type="primary"):
-            roi = roi_calc.calculate_roi(
-                packages.ev_packages[selected_ev],
-                packages.battery_packages[selected_battery],
-                packages.solar_packages[selected_solar],
-                usage_profile
+    if st.button("Calculate Financial Benefits", type="primary"):
+        roi = roi_calc.calculate_roi(
+            packages.ev_packages[selected_ev],
+            packages.battery_packages[selected_battery],
+            packages.solar_packages[selected_solar],
+            usage_profile
+        )
+        
+        st.header("Financial Summary")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric(
+                "Monthly Package Payment",
+                f"${roi['monthly_payment']:.2f}"
             )
         
-            st.header("Financial Summary")
-            col1, col2, col3, col4 = st.columns(4)
+        with col2:
+            st.metric(
+                "Monthly Benefits",
+                f"${roi['monthly_benefit']:.2f}"
+            )
             
-            with col1:
-                st.metric(
-                    "Monthly Package Payment",
-                    f"${roi['monthly_payment']:.2f}"
-                )
+        with col3:
+            st.metric(
+                "Net Monthly Savings",
+                f"${roi['net_monthly']:.2f}",
+                delta=f"${roi['net_monthly'] - power_bill:.2f} vs current"
+            )
             
-            with col2:
-                st.metric(
-                    "Monthly Benefits",
-                    f"${roi['monthly_benefit']:.2f}"
-                )
-                
-            with col3:
-                st.metric(
-                    "Net Monthly Savings",
-                    f"${roi['net_monthly']:.2f}",
-                    delta=f"${roi['net_monthly'] - power_bill:.2f} vs current"
-                )
-                
-            with col4:
-                st.metric(
-                    "Payback Period",
-                    f"{roi['payback_years']:.1f} years"
-                )
+        with col4:
+            st.metric(
+                "Payback Period",
+                f"{roi['payback_years']:.1f} years"
+            )
         
         # Detailed breakdown
         st.subheader("Monthly Breakdown")
@@ -460,34 +456,7 @@ def main():
                 f"${dr_rev:.2f}",
                 help="Revenue from demand response events"
             )
-        
-        # AEMO price patterns
-        st.subheader("Energy Market Prices")
-        price_fig = go.Figure()
-        
-        for season in ['summer_peak', 'winter_peak']:
-            prices = []
-            probabilities = []
-            for level, details in aemo.price_patterns[season].items():
-                prices.append(details['price'])
-                probabilities.append(details['probability'])
-            
-            price_fig.add_trace(go.Scatter(
-                x=prices,
-                y=probabilities,
-                name=season.replace('_', ' ').title(),
-                mode='lines+markers'
-            ))
-        
-        price_fig.update_layout(
-            title='Price Distribution by Season',
-            xaxis_title='Price ($/kWh)',
-            yaxis_title='Probability',
-            height=400
-        )
-        
-        st.plotly_chart(price_fig, use_container_width=True)
-        
+
         # Package features
         st.subheader("Package Features")
         
